@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "City Weather Dashboard",
+  "license": "MIT",
   "scripts": {
     "dev": "tsx scripts/dev-runner.ts",
     "dev:client": "vite --open",
