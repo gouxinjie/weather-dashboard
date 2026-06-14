@@ -33,6 +33,7 @@ interface SummaryMetric {
   value: string;
   note: string;
   accent: 'amber' | 'teal' | 'green' | 'blue';
+  icon: 'weather' | 'temperature' | 'precipitation' | 'rainy-days';
 }
 
 /** 生活指数展示项 */
@@ -43,6 +44,37 @@ interface DisplayIndex {
   text: string;
   icon: string;
   accent: 'teal' | 'green' | 'amber' | 'orange';
+}
+
+/** 主天气卡指标定义 */
+interface HeroMetric {
+  key: string;
+  label: string;
+  value: string;
+  icon: string;
+  accent: 'amber' | 'teal' | 'cyan' | 'green';
+}
+
+/** 底部天气类型占比卡片定义 */
+interface DisplayWeatherRatioSummary {
+  title: string;
+  note: string;
+  items: WeatherTypeRatio[];
+}
+
+/** 底部累计降水卡片定义 */
+interface DisplayPrecipitationSummary {
+  title: string;
+  value: string;
+  note: string;
+  isForecast: boolean;
+}
+
+/** 底部天气提示卡片定义 */
+interface DisplayHighlightSummary {
+  title: string;
+  note: string;
+  items: string[];
 }
 
 /**
@@ -155,6 +187,187 @@ function sampleItems<T>(items: T[], count: number): T[] {
 }
 
 /**
+ * 判断统计文本是否有效
+ * @param value 统计值
+ * @returns 是否有效
+ */
+function hasMetricValue(value: string): boolean {
+  return value.trim() !== '' && value.trim() !== '--';
+}
+
+/**
+ * 计算每日平均气温
+ * @param item 每日预报
+ * @returns 平均气温
+ */
+function getDailyAverageTemp(item: DailyItem): number {
+  return (toNumber(item.tempMax) + toNumber(item.tempMin)) / 2;
+}
+
+/**
+ * 判断是否为雨天
+ * @param item 每日预报
+ * @returns 是否雨天
+ */
+function isRainyDay(item: DailyItem): boolean {
+  return toNumber(item.precip) > 0.1 || /雨|雪/.test(item.textDay) || /雨|雪/.test(item.textNight);
+}
+
+/**
+ * 格式化数值展示
+ * @param value 数值
+ * @param digits 小数位
+ * @returns 文本
+ */
+function formatMetricNumber(value: number, digits: number = 1): string {
+  if (!Number.isFinite(value)) {
+    return '--';
+  }
+
+  return value.toFixed(digits);
+}
+
+/**
+ * 获取今日天气描述
+ * @param dailyToday 今日预报
+ * @param weatherText 实时天气
+ * @returns 天气描述
+ */
+function getTodayWeatherText(dailyToday: DailyItem | undefined, weatherText: string): string {
+  if (!dailyToday) {
+    return weatherText;
+  }
+
+  if (dailyToday.textDay && dailyToday.textNight && dailyToday.textDay !== dailyToday.textNight) {
+    return `${dailyToday.textDay}转${dailyToday.textNight}`;
+  }
+
+  return dailyToday.textDay || dailyToday.textNight || weatherText;
+}
+
+/**
+ * 基于预报生成天气占比
+ * @param daily 预报列表
+ * @returns 占比
+ */
+function buildWeatherRatiosFromDaily(daily: DailyItem[]): WeatherTypeRatio[] {
+  if (daily.length === 0) {
+    return [];
+  }
+
+  const counter = new Map<string, number>();
+
+  daily.forEach((item) => {
+    const type = getDailyTypeLabel(item);
+    counter.set(type, (counter.get(type) || 0) + 1);
+  });
+
+  return Array.from(counter.entries())
+    .map(([type, count]) => ({
+      type,
+      count,
+      ratio: count / daily.length,
+    }))
+    .sort((prev, current) => current.ratio - prev.ratio);
+}
+
+/**
+ * 获取首页展示用天气占比
+ * @param homeData 首页数据
+ * @returns 占比列表
+ */
+function getDisplayWeatherRatioSummary(homeData: HomeData): DisplayWeatherRatioSummary {
+  if (homeData.monthlyStats.weatherTypeRatio.length > 0) {
+    return {
+      title: '近 30 天天气类型占比',
+      note:
+        homeData.monthlyStats.sampleDays > 0
+          ? `统计样本 ${homeData.monthlyStats.sampleDays} 天`
+          : '本地统计样本',
+      items: homeData.monthlyStats.weatherTypeRatio,
+    };
+  }
+
+  return {
+    title: '未来 7 天天气类型占比',
+    note: '预报分布参考',
+    items: buildWeatherRatiosFromDaily(homeData.daily),
+  };
+}
+
+/**
+ * 获取首页展示用累计降水
+ * @param homeData 首页数据
+ * @returns 展示值与说明
+ */
+function getDisplayMonthlyPrecipitation(homeData: HomeData): DisplayPrecipitationSummary {
+  if (homeData.monthlyStats.sampleDays > 0 && hasMetricValue(homeData.monthlyStats.totalPrecipitation)) {
+    return {
+      title: '近 30 天累计降水',
+      value: homeData.monthlyStats.totalPrecipitation,
+      note: `统计样本 ${homeData.monthlyStats.sampleDays} 天`,
+      isForecast: false,
+    };
+  }
+
+  const forecastSum = homeData.daily.reduce((sum, item) => sum + toNumber(item.precip), 0);
+
+  return {
+    title: '未来 7 天累计降水',
+    value: formatMetricNumber(forecastSum),
+    note: '7 天预报累计',
+    isForecast: true,
+  };
+}
+
+/**
+ * 构建首页累计降水趋势文案
+ * @param statsDetail 统计详情
+ * @param dailyForecast 7天预报
+ * @returns 对比文案
+ */
+function buildDisplayPrecipitationDelta(
+  statsDetail: StatsDetailData | null,
+  dailyForecast: DailyItem[]
+): string {
+  if (statsDetail && statsDetail.daily30.length >= 2) {
+    return buildPrecipitationDelta(statsDetail);
+  }
+
+  if (dailyForecast.length < 2) {
+    return '预报样本不足';
+  }
+
+  const splitIndex = Math.max(1, Math.floor(dailyForecast.length / 2));
+  const firstHalf = dailyForecast
+    .slice(0, splitIndex)
+    .reduce((sum, item) => sum + toNumber(item.precip), 0);
+  const secondHalf = dailyForecast
+    .slice(splitIndex)
+    .reduce((sum, item) => sum + toNumber(item.precip), 0);
+
+  if (firstHalf === 0 && secondHalf === 0) {
+    return '降水平稳';
+  }
+
+  if (firstHalf === 0) {
+    return '↑ 预报转雨';
+  }
+
+  if (secondHalf === 0) {
+    return '↓ 后段转晴';
+  }
+
+  const delta = ((secondHalf - firstHalf) / firstHalf) * 100;
+
+  if (Math.abs(delta) < 10) {
+    return '降水平稳';
+  }
+
+  return `${delta > 0 ? '↑' : '↓'} ${Math.abs(delta).toFixed(0)}%`;
+}
+
+/**
  * 生成农历文本
  * @param date 日期
  * @param timeZone 时区
@@ -216,42 +429,98 @@ function buildTimeMeta(
  * @returns 左侧摘要列表
  */
 function buildSummaryMetrics(homeData: HomeData): SummaryMetric[] {
+  const weeklyForecast = homeData.daily.slice(0, 7);
+  const todayForecast = weeklyForecast[0];
+  const monthlyForecast = homeData.daily.filter((item) =>
+    item.fxDate.startsWith(homeData.monthlyStats.month)
+  );
+  const monthlySample = monthlyForecast.length > 0 ? monthlyForecast : weeklyForecast;
+  const displayMonthlyPrecipitation = getDisplayMonthlyPrecipitation(homeData);
+  const weeklyRainyDays =
+    homeData.weeklyStats.sampleDays > 0
+      ? homeData.weeklyStats.rainyDays
+      : weeklyForecast.filter((item) => isRainyDay(item)).length;
+  const weeklyAvgTemp =
+    homeData.weeklyStats.sampleDays > 0 && hasMetricValue(homeData.weeklyStats.avgTemp)
+      ? `${homeData.weeklyStats.avgTemp}°C`
+      : weeklyForecast.length > 0
+        ? `${formatMetricNumber(
+            weeklyForecast.reduce((sum, item) => sum + getDailyAverageTemp(item), 0) /
+              weeklyForecast.length
+          )}°C`
+        : '--°C';
+  const weeklyTotalPrecipitation =
+    homeData.weeklyStats.sampleDays > 0 && hasMetricValue(homeData.weeklyStats.totalPrecipitation)
+      ? `${homeData.weeklyStats.totalPrecipitation} mm`
+      : `${formatMetricNumber(
+          weeklyForecast.reduce((sum, item) => sum + toNumber(item.precip), 0)
+        )} mm`;
+  const monthlyAvgTemp =
+    homeData.monthlyStats.sampleDays > 0 && hasMetricValue(homeData.monthlyStats.avgTemp)
+      ? `${homeData.monthlyStats.avgTemp}°C`
+      : monthlySample.length > 0
+        ? `${formatMetricNumber(
+            monthlySample.reduce((sum, item) => sum + getDailyAverageTemp(item), 0) /
+              monthlySample.length
+          )}°C`
+        : '--°C';
+  const todayValue = todayForecast
+    ? `${todayForecast.tempMin}°/${todayForecast.tempMax}°`
+    : `${homeData.overview.todaySummary.tempMin}°/${homeData.overview.todaySummary.tempMax}°`;
+  const monthlyTempLabel = homeData.monthlyStats.sampleDays > 0 ? '本月平均气温' : '7天平均气温';
+  const monthlyPrecipitationLabel = displayMonthlyPrecipitation.isForecast
+    ? '7天累计降水'
+    : '本月累计降水';
+  const weeklyTempNote =
+    homeData.weeklyStats.sampleDays > 0 ? `${homeData.weeklyStats.weekStart} 起` : '7天预报';
+  const monthlyTempNote =
+    homeData.monthlyStats.sampleDays > 0 ? '截至最新采样日' : '月内预报';
+
   return [
     {
       label: '今日天气',
-      value: homeData.overview.weatherNow.text,
-      note: `${homeData.overview.todaySummary.tempMin}°/${homeData.overview.todaySummary.tempMax}°`,
+      value: todayValue,
+      note: getTodayWeatherText(todayForecast, homeData.overview.weatherNow.text) || '暂无天气描述',
       accent: 'amber',
+      icon: 'weather',
     },
     {
       label: '本周平均气温',
-      value: `${homeData.weeklyStats.avgTemp}°C`,
-      note: `${homeData.weeklyStats.weekStart} 起`,
+      value: weeklyAvgTemp,
+      note: weeklyTempNote,
       accent: 'teal',
+      icon: 'temperature',
     },
     {
       label: '本周总降水',
-      value: `${homeData.weeklyStats.totalPrecipitation} mm`,
-      note: `雨天 ${homeData.weeklyStats.rainyDays} 天`,
+      value: weeklyTotalPrecipitation,
+      note: `雨天 ${weeklyRainyDays} 天`,
       accent: 'blue',
+      icon: 'precipitation',
     },
     {
-      label: '本周 AQI 均值',
-      value: homeData.weeklyStats.aqiAvg,
-      note: `样本 ${homeData.weeklyStats.sampleDays}/${homeData.weeklyStats.expectedDays}`,
+      label: '本周雨天数',
+      value: `${weeklyRainyDays} 天`,
+      note:
+        homeData.weeklyStats.sampleDays > 0
+          ? `样本 ${homeData.weeklyStats.sampleDays}/${homeData.weeklyStats.expectedDays}`
+          : '7天预报',
       accent: 'green',
+      icon: 'rainy-days',
     },
     {
-      label: '本月平均气温',
-      value: `${homeData.monthlyStats.avgTemp}°C`,
-      note: '截至最新采样日',
+      label: monthlyTempLabel,
+      value: monthlyAvgTemp,
+      note: monthlyTempNote,
       accent: 'amber',
+      icon: 'temperature',
     },
     {
-      label: '本月累计降水',
-      value: `${homeData.monthlyStats.totalPrecipitation} mm`,
-      note: '截至最新采样日',
+      label: monthlyPrecipitationLabel,
+      value: `${displayMonthlyPrecipitation.value} mm`,
+      note: displayMonthlyPrecipitation.note,
       accent: 'blue',
+      icon: 'precipitation',
     },
   ];
 }
@@ -291,6 +560,95 @@ function pickLifeIndices(indices: IndexItem[]): DisplayIndex[] {
   });
 
   return selected;
+}
+
+/**
+ * 构建主天气卡提示语
+ * @param homeData 首页数据
+ * @returns 提示语
+ */
+function buildHeroAdvice(homeData: HomeData): string {
+  const weatherText = homeData.overview.weatherNow.text;
+
+  if (/雨/.test(weatherText)) {
+    return '空气清新，雨天路滑，注意安全出行';
+  }
+
+  if (/晴/.test(weatherText)) {
+    return '天空通透，紫外线偏强，出行注意防晒';
+  }
+
+  if (/雾|霾/.test(weatherText)) {
+    return '能见度一般，出行请留意道路与空气变化';
+  }
+
+  return '天气平稳，体感舒适，适合安排日常出行';
+}
+
+/**
+ * 构建主天气卡底部指标
+ * @param homeData 首页数据
+ * @returns 指标列表
+ */
+function buildHeroMetrics(homeData: HomeData): HeroMetric[] {
+  return [
+    {
+      key: 'temp-max',
+      label: '最高温度',
+      value: `${homeData.overview.todaySummary.tempMax}°C`,
+      icon: '◔',
+      accent: 'amber',
+    },
+    {
+      key: 'temp-min',
+      label: '最低温度',
+      value: `${homeData.overview.todaySummary.tempMin}°C`,
+      icon: '◕',
+      accent: 'cyan',
+    },
+    {
+      key: 'wind',
+      label: '风向风力',
+      value: `${homeData.overview.weatherNow.windDir} ${homeData.overview.weatherNow.windScale}级`,
+      icon: '↗',
+      accent: 'teal',
+    },
+    {
+      key: 'humidity',
+      label: '湿度',
+      value: `${homeData.overview.weatherNow.humidity}%`,
+      icon: '◍',
+      accent: 'teal',
+    },
+    {
+      key: 'visibility',
+      label: '能见度',
+      value: `${homeData.overview.weatherNow.vis} km`,
+      icon: '◌',
+      accent: 'green',
+    },
+    {
+      key: 'pressure',
+      label: '气压',
+      value: `${homeData.overview.weatherNow.pressure} hPa`,
+      icon: '○',
+      accent: 'green',
+    },
+    {
+      key: 'precipitation',
+      label: '当前降水量',
+      value: `${homeData.overview.weatherNow.precip} mm`,
+      icon: '💧',
+      accent: 'cyan',
+    },
+    {
+      key: 'uv',
+      label: '紫外线强度',
+      value: `${homeData.overview.todaySummary.uvIndex} 级`,
+      icon: '☼',
+      accent: 'amber',
+    },
+  ];
 }
 
 /**
@@ -334,7 +692,7 @@ function buildRecentSevenSeries(
 function buildMonthlyHighlights(
   statsDetail: StatsDetailData | null,
   dailyForecast: DailyItem[]
-): string[] {
+): DisplayHighlightSummary {
   const source = statsDetail?.daily30 ?? [];
 
   if (source.length > 0) {
@@ -348,12 +706,16 @@ function buildMonthlyHighlights(
       current.precipitation > prev.precipitation ? current : prev
     );
 
-    return [
-      `${maxTempDay.statDate.slice(5)} 最高气温 ${maxTempDay.maxTemp.toFixed(1)}°C`,
-      `${minTempDay.statDate.slice(5)} 最低气温 ${minTempDay.minTemp.toFixed(1)}°C`,
-      `${maxPrecipDay.statDate.slice(5)} 最大日降水 ${maxPrecipDay.precipitation.toFixed(1)}mm`,
-      `本月样本期 ${source[0].statDate} 至 ${source[source.length - 1].statDate}`,
-    ];
+    return {
+      title: '本月极端天气提示',
+      note: `样本期 ${source[0].statDate} 至 ${source[source.length - 1].statDate}`,
+      items: [
+        `${maxTempDay.statDate.slice(5)} 最高气温 ${maxTempDay.maxTemp.toFixed(1)}°C`,
+        `${minTempDay.statDate.slice(5)} 最低气温 ${minTempDay.minTemp.toFixed(1)}°C`,
+        `${maxPrecipDay.statDate.slice(5)} 最大日降水 ${maxPrecipDay.precipitation.toFixed(1)}mm`,
+        `本月样本共 ${source.length} 天`,
+      ],
+    };
   }
 
   const hotDay = dailyForecast.reduce((prev, current) =>
@@ -363,11 +725,15 @@ function buildMonthlyHighlights(
     toNumber(current.precip) > toNumber(prev.precip) ? current : prev
   );
 
-  return [
-    `${formatShortDate(hotDay.fxDate)} 预报最高气温 ${hotDay.tempMax}°C`,
-    `${formatShortDate(rainDay.fxDate)} 预报降水 ${rainDay.precip}mm`,
-    '近 30 天实测样本不足，以下提示以当前预报为参考',
-  ];
+  return {
+    title: '未来 7 天天气提示',
+    note: '近 30 天实测样本不足，以下内容基于当前预报',
+    items: [
+      `${formatShortDate(hotDay.fxDate)} 预报最高气温 ${hotDay.tempMax}°C`,
+      `${formatShortDate(rainDay.fxDate)} 预报降水 ${rainDay.precip}mm`,
+      '近 30 天实测样本不足，以下提示以当前预报为参考',
+    ],
+  };
 }
 
 /**
@@ -874,13 +1240,40 @@ function buildWeatherRatioOption(ratios: WeatherTypeRatio[]): EChartsOption {
  * @param props 属性
  * @returns 节点
  */
+function getSummaryMetricIcon(icon: SummaryMetric['icon']): string {
+  switch (icon) {
+    case 'weather':
+      return '☼';
+    case 'temperature':
+      return '℃';
+    case 'precipitation':
+      return '☂';
+    case 'rainy-days':
+      return '☔';
+    default:
+      return '•';
+  }
+}
+
+/**
+ * 摘要数值行
+ * @param props 属性
+ * @returns 节点
+ */
 function SummaryRow({ metric }: { metric: SummaryMetric }): JSX.Element {
   return (
     <div className={`weather-home__summary-row weather-home__summary-row--${metric.accent}`}>
-      <span className="weather-home__summary-dot" />
+      <span
+        aria-hidden="true"
+        className={`weather-home__summary-icon weather-home__summary-icon--${metric.icon}`}
+      >
+        {getSummaryMetricIcon(metric.icon)}
+      </span>
       <div className="weather-home__summary-copy">
-        <span className="weather-home__summary-label">{metric.label}</span>
-        <span className="weather-home__summary-note">{metric.note}</span>
+        <div className="weather-home__summary-title-line">
+          <span className="weather-home__summary-label">{metric.label}</span>
+          <span className="weather-home__summary-note">{metric.note}</span>
+        </div>
       </div>
       <strong className="weather-home__summary-value">{metric.value}</strong>
     </div>
@@ -918,21 +1311,32 @@ export default function Home(): JSX.Element {
     const weatherScene = resolveWeatherScene(homeData.overview.weatherNow.icon);
     const summaryMetrics = buildSummaryMetrics(homeData);
     const lifeIndices = pickLifeIndices(homeData.indices);
-    const weatherRatios = homeData.monthlyStats.weatherTypeRatio.slice(0, 4);
+    const weatherRatioSummary = getDisplayWeatherRatioSummary(homeData);
+    const weatherRatiosAll = weatherRatioSummary.items;
+    const weatherRatios = weatherRatiosAll.slice(0, 4);
     const recentSevenSeries = buildRecentSevenSeries(statsDetail, homeData.daily);
-    const monthlyHighlights = buildMonthlyHighlights(statsDetail, homeData.daily);
+    const highlightSummary = buildMonthlyHighlights(statsDetail, homeData.daily);
     const hourlySample = sampleItems(homeData.hourly, 12);
+    const displayMonthlyPrecipitation = getDisplayMonthlyPrecipitation(homeData);
+    const heroMetrics = buildHeroMetrics(homeData);
+    const heroAdvice = buildHeroAdvice(homeData);
 
     return {
       timeMeta,
       weatherScene,
       summaryMetrics,
+      heroMetrics,
+      heroAdvice,
       lifeIndices,
+      weatherRatioSummary,
       weatherRatios,
+      weatherRatiosAll,
       recentSevenSeries,
-      monthlyHighlights,
+      highlightSummary,
+      monthlyHighlights: highlightSummary.items,
       hourlySample,
-      precipitationDelta: buildPrecipitationDelta(statsDetail),
+      displayMonthlyPrecipitation,
+      precipitationDelta: buildDisplayPrecipitationDelta(statsDetail, homeData.daily),
     };
   }, [homeData, now, statsDetail]);
 
@@ -1175,62 +1579,52 @@ export default function Home(): JSX.Element {
           <section className="weather-home__center">
             <section className={`weather-home__hero weather-home__hero--${viewModel.weatherScene}`}>
               <div className="weather-home__hero-overlay" />
-              <div className="weather-home__hero-skyline" />
-
-              <div className="weather-home__hero-main">
-                <div className="weather-home__hero-temp">
-                  <span className="weather-home__hero-degree">
-                    {toNumber(homeData.overview.weatherNow.temp).toFixed(1)}
-                  </span>
-                  <span className="weather-home__hero-unit">°C</span>
-                </div>
-
-                <div className="weather-home__hero-copy">
-                  <div className="weather-home__hero-copy-line">
-                    <WeatherIcon
-                      code={homeData.overview.weatherNow.icon}
-                      className="weather-home__hero-glyph"
-                      label={homeData.overview.weatherNow.text}
-                    />
-                    <span>体感温度 {homeData.overview.weatherNow.feelsLike}°C</span>
-                  </div>
-                  <h2>{homeData.overview.weatherNow.text}</h2>
-                  <p>{homeData.minutely.summary || '空气清新，当前天气稳定，注意合理安排出行。'}</p>
-                </div>
+              <div className="weather-home__hero-scene" aria-hidden="true">
+                <div className="weather-home__hero-glow" />
+                <div className="weather-home__hero-orb" />
+                <div className="weather-home__hero-water" />
+                <div className="weather-home__hero-skyline" />
               </div>
 
-              <div className="weather-home__hero-metrics">
-                <div>
-                  <span>最高温度</span>
-                  <strong>{homeData.overview.todaySummary.tempMax}°C</strong>
+              <div className="weather-home__hero-content">
+                <div className="weather-home__hero-main">
+                  <div className="weather-home__hero-temp">
+                    <span className="weather-home__hero-degree">
+                      {toNumber(homeData.overview.weatherNow.temp).toFixed(1)}
+                    </span>
+                    <span className="weather-home__hero-unit">°C</span>
+                  </div>
+
+                  <div className="weather-home__hero-copy">
+                    <div className="weather-home__hero-copy-line">
+                      <WeatherIcon
+                        code={homeData.overview.weatherNow.icon}
+                        className="weather-home__hero-glyph"
+                        label={homeData.overview.weatherNow.text}
+                      />
+                      <span>体感温度 {homeData.overview.weatherNow.feelsLike}°C</span>
+                    </div>
+                    <h2>{homeData.overview.weatherNow.text}</h2>
+                    <p>{homeData.minutely.summary || '未来两小时天气平稳，当前无明显降水。'}</p>
+                    <span className="weather-home__hero-advice">{viewModel.heroAdvice}</span>
+                  </div>
                 </div>
-                <div>
-                  <span>最低温度</span>
-                  <strong>{homeData.overview.todaySummary.tempMin}°C</strong>
-                </div>
-                <div>
-                  <span>风向风力</span>
-                  <strong>{homeData.overview.weatherNow.windDir} {homeData.overview.weatherNow.windScale}级</strong>
-                </div>
-                <div>
-                  <span>湿度</span>
-                  <strong>{homeData.overview.weatherNow.humidity}%</strong>
-                </div>
-                <div>
-                  <span>能见度</span>
-                  <strong>{homeData.overview.weatherNow.vis} km</strong>
-                </div>
-                <div>
-                  <span>气压</span>
-                  <strong>{homeData.overview.weatherNow.pressure} hPa</strong>
-                </div>
-                <div>
-                  <span>当前降水量</span>
-                  <strong>{homeData.overview.weatherNow.precip} mm</strong>
-                </div>
-                <div>
-                  <span>紫外线强度</span>
-                  <strong>{homeData.overview.todaySummary.uvIndex} 级</strong>
+
+                <div className="weather-home__hero-metrics">
+                  {viewModel.heroMetrics.map((item) => (
+                    <div
+                      className={`weather-home__hero-metric weather-home__hero-metric--${item.accent}`}
+                      key={item.key}
+                    >
+                      <span className="weather-home__hero-metric-icon" aria-hidden="true">
+                        {item.icon}
+                      </span>
+                      <div className="weather-home__hero-metric-copy">
+                        <span>{item.label}</span>
+                        <strong>{item.value}</strong>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </section>
@@ -1384,29 +1778,30 @@ export default function Home(): JSX.Element {
 
           <section className="weather-home__panel weather-home__panel--bottom weather-home__panel--precip-summary">
             <div className="weather-home__panel-head">
-              <h2>近 30 天累计降水</h2>
+              <h2>{viewModel.displayMonthlyPrecipitation.title}</h2>
               <span>单位: mm</span>
             </div>
             <div className="weather-home__precip-hero">
-              <strong>{homeData.monthlyStats.totalPrecipitation}</strong>
+              <strong>{viewModel.displayMonthlyPrecipitation.value}</strong>
               <em>mm</em>
             </div>
             <div className="weather-home__precip-wave" />
             <div className="weather-home__precip-footnote">
               <span>{viewModel.precipitationDelta}</span>
-              <em>基于样本期前后半段对比</em>
+              <em>{viewModel.displayMonthlyPrecipitation.note}</em>
             </div>
           </section>
 
           <section className="weather-home__panel weather-home__panel--bottom weather-home__panel--ratio-card">
             <div className="weather-home__panel-head">
-              <h2>近 30 天天气类型占比</h2>
+              <h2>{viewModel.weatherRatioSummary.title}</h2>
+              <span>{viewModel.weatherRatioSummary.note}</span>
             </div>
             <div className="weather-home__ratio-chart">
-              <DashboardChart option={buildWeatherRatioOption(homeData.monthlyStats.weatherTypeRatio)} />
+              <DashboardChart option={buildWeatherRatioOption(viewModel.weatherRatiosAll)} />
             </div>
             <div className="weather-home__ratio-legend-list">
-              {homeData.monthlyStats.weatherTypeRatio.slice(0, 4).map((item) => (
+              {viewModel.weatherRatiosAll.slice(0, 4).map((item) => (
                 <div className="weather-home__ratio-legend-row" key={item.type}>
                   <span>{item.type}</span>
                   <strong>{Math.round(item.ratio * 100)}%</strong>
@@ -1417,7 +1812,8 @@ export default function Home(): JSX.Element {
 
           <section className="weather-home__panel weather-home__panel--bottom weather-home__panel--highlights">
             <div className="weather-home__panel-head">
-              <h2>本月极端天气提示</h2>
+              <h2>{viewModel.highlightSummary.title}</h2>
+              <span>{viewModel.highlightSummary.note}</span>
             </div>
             <ul className="weather-home__highlight-list">
               {viewModel.monthlyHighlights.map((item) => (
