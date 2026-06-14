@@ -1368,6 +1368,7 @@ export default function Home(): JSX.Element {
 
   const primaryAlert = homeData.alerts[0] || null;
   const aqiColor = AQI_CATEGORY_COLORS[homeData.airNow.category] || '#88B04B';
+  const airLevelLabel = homeData.airNow.category || homeData.airNow.level || '未知';
   const aqiBadgeStyle = {
     '--weather-home-headline-badge-rgb': toCssRgbValue(aqiColor),
   } as CSSProperties;
@@ -1672,7 +1673,7 @@ export default function Home(): JSX.Element {
                 </div>
                 <div className="weather-home__air-copy">
                   <em style={{ backgroundColor: `${aqiColor}26`, color: aqiColor }}>
-                    {homeData.airNow.level || homeData.airNow.category}
+                    {airLevelLabel}
                   </em>
                   <span>首要污染物</span>
                   <strong>{homeData.airNow.primaryPollutant || '暂无'}</strong>
