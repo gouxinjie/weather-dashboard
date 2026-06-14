@@ -1,0 +1,121 @@
+/**
+ * @file AlertCard 样式
+ * @description 预警模块样式
+ * 
+ * 样式说明：预警卡片左侧色条标识严重程度
+ * 关键布局：列表式预警项，每项左侧颜色条 + 右侧内容
+ */
+
+.alert-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--gap-lg);
+
+  &__title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: var(--gap-md);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--gap-xl) 0;
+    gap: var(--gap-sm);
+
+    &-icon {
+      font-size: var(--font-size-2xl);
+      color: var(--highlight-normal);
+    }
+
+    &-text {
+      font-size: var(--font-size-md);
+      color: var(--highlight-normal);
+      font-weight: 600;
+    }
+
+    &-hint {
+      font-size: var(--font-size-xs);
+      color: var(--text-muted);
+    }
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-md);
+    max-height: 320px;
+    overflow-y: auto;
+  }
+
+  &__item {
+    border-left: 3px solid;
+    padding: var(--gap-sm) var(--gap-md);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-sm);
+    margin-bottom: var(--gap-sm);
+  }
+
+  &__severity {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 2px;
+    color: #fff;
+    font-weight: 700;
+  }
+
+  &__event {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__headline {
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  &__time {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  &__desc {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-top: 2px;
+  }
+
+  &__instruction {
+    font-size: var(--font-size-xs);
+    color: var(--highlight-rain);
+    line-height: 1.6;
+    margin-top: 4px;
+    padding: var(--gap-sm);
+    background: rgba(79, 163, 165, 0.08);
+    border-radius: var(--radius-sm);
+
+    &-label {
+      font-weight: 600;
+    }
+  }
+}

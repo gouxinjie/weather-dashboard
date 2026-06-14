@@ -1,0 +1,17 @@
+/**
+ * @file WeatherIcon 样式
+ * @description 统一约束和风天气字体图标的对齐方式与颜色继承
+ *
+ * 样式说明：所有天气图标统一使用内联弹性布局，避免在标题、表格和卡片中产生基线偏移
+ * 关键布局说明：图标尺寸由外部 class 控制，当前文件只负责基础显示行为
+ */
+
+.weather-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  color: inherit;
+  font-style: normal;
+  vertical-align: middle;
+}

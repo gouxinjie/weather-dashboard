@@ -1,0 +1,200 @@
+/**
+ * @file CityDrawer 样式
+ * @description 城市选择抽屉样式
+ * 
+ * 样式说明：右侧滑出抽屉，包含搜索、定位、最近访问和热门城市
+ * 关键布局：固定定位覆盖层 + 右侧抽屉面板
+ */
+
+.city-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.city-drawer {
+  width: 360px;
+  max-width: 90vw;
+  height: 100%;
+  background: var(--bg-primary);
+  border-left: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  animation: slideInRight 0.25s ease;
+
+  @keyframes slideInRight {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--gap-lg) var(--gap-xl);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  &__title {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  &__close {
+    font-size: var(--font-size-lg);
+    color: var(--text-secondary);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+  }
+
+  &__search {
+    padding: var(--gap-lg) var(--gap-xl);
+    position: relative;
+  }
+
+  &__search-input {
+    width: 100%;
+    padding: 10px var(--gap-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+    transition: border-color 0.2s;
+
+    &:focus {
+      border-color: var(--highlight-rain);
+    }
+
+    &::placeholder {
+      color: var(--text-muted);
+    }
+  }
+
+  &__search-spinner {
+    position: absolute;
+    right: 28px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border-color);
+    border-top-color: var(--highlight-rain);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: translateY(-50%) rotate(360deg); }
+  }
+
+  &__results {
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 0 var(--gap-xl);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  &__result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 8px;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: background 0.15s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+  }
+
+  &__result-name {
+    font-size: var(--font-size-md);
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  &__result-adm {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+  }
+
+  &__section {
+    padding: var(--gap-lg) var(--gap-xl);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  &__section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--gap-md);
+  }
+
+  &__section-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  &__locate-btn {
+    font-size: var(--font-size-xs);
+    color: var(--highlight-rain);
+    cursor: pointer;
+
+    &:hover {
+      opacity: 0.8;
+    }
+  }
+
+  &__current-city {
+    padding: 8px var(--gap-md);
+    background: rgba(79, 163, 165, 0.1);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(79, 163, 165, 0.2);
+  }
+
+  &__current-name {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--highlight-rain);
+  }
+
+  &__city-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-sm);
+  }
+
+  &__city-tag {
+    padding: 6px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+    }
+
+    &.active {
+      background: rgba(79, 163, 165, 0.15);
+      border-color: var(--highlight-rain);
+      color: var(--highlight-rain);
+      font-weight: 600;
+    }
+  }
+}

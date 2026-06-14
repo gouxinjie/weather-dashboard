@@ -1,0 +1,26 @@
+# 依赖目录
+node_modules/
+server/node_modules/
+
+# 构建产物
+dist/
+server/dist/
+
+# 本地环境变量
+server/.env
+
+# 本地数据库与运行数据
+server/data/
+
+# TypeScript 构建缓存
+*.tsbuildinfo
+
+# 日志文件
+*.log
+npm-debug.log*
+
+# 编辑器与系统文件
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

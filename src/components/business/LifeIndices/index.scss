@@ -1,0 +1,72 @@
+/**
+ * @file LifeIndices 样式
+ * @description 生活指数模块样式
+ * 
+ * 样式说明：网格排列各项生活指数卡片
+ * 关键布局：2 列网格，每项图标 + 名称 + 等级 + 建议
+ */
+
+.life-indices {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--gap-lg);
+
+  &__title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: var(--gap-md);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  &__empty {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+    text-align: center;
+    padding: var(--gap-xl) 0;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--gap-sm);
+  }
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--gap-sm) 8px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: var(--radius-sm);
+
+    &-header {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    &-icon {
+      font-size: 14px;
+    }
+
+    &-name {
+      font-size: var(--font-size-xs);
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    &-level {
+      font-size: var(--font-size-xs);
+      color: var(--highlight-sunny);
+      font-weight: 500;
+    }
+
+    &-text {
+      font-size: 10px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+  }
+}

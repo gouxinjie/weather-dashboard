@@ -1,0 +1,102 @@
+/**
+ * @file StatsSummary 样式
+ * @description 统计摘要模块样式
+ * 
+ * 样式说明：左右两栏展示周/月统计
+ * 关键布局：2 列网格，每列内部 2x2 指标
+ */
+
+.stats-summary {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--gap-lg);
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--gap-md);
+  }
+
+  &__title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  &__more {
+    font-size: var(--font-size-xs);
+    color: var(--highlight-rain);
+    cursor: pointer;
+    transition: opacity 0.2s;
+
+    &:hover {
+      opacity: 0.8;
+    }
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--gap-md);
+  }
+
+  &__card {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: var(--radius-md);
+    padding: var(--gap-md);
+
+    &-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: var(--gap-md);
+    }
+
+    &-title {
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    &-date {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+  }
+
+  &__metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--gap-sm);
+  }
+
+  &__metric {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    &-label {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    &-value {
+      font-size: var(--font-size-md);
+      font-weight: 600;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__hint {
+    font-size: 10px;
+    color: var(--highlight-risk);
+    margin-top: var(--gap-sm);
+    padding: 4px 6px;
+    background: rgba(217, 108, 63, 0.08);
+    border-radius: var(--radius-sm);
+  }
+}

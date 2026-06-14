@@ -1,0 +1,113 @@
+/**
+ * @file AirQualityCard 样式
+ * @description 空气质量模块样式
+ * 
+ * 样式说明：居中 AQI 圆环 + 污染物网格 + 趋势图
+ * 关键布局：圆环居中突出，污染物 2 列网格
+ */
+
+.air-quality-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--gap-lg);
+
+  &__title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: var(--gap-md);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  &__aqi-ring {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 3px solid;
+    margin: 0 auto var(--gap-md);
+  }
+
+  &__aqi-value {
+    font-size: var(--font-size-3xl);
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  &__aqi-label {
+    font-size: var(--font-size-xs);
+    margin-top: 2px;
+  }
+
+  &__bar-track {
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    margin-bottom: var(--gap-md);
+    overflow: hidden;
+  }
+
+  &__bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease;
+  }
+
+  &__primary {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    text-align: center;
+    margin-bottom: var(--gap-md);
+  }
+
+  &__pollutants {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--gap-sm);
+    margin-bottom: var(--gap-md);
+  }
+
+  &__pollutant {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--gap-sm) 8px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: var(--radius-sm);
+
+    &-label {
+      font-size: var(--font-size-xs);
+      color: var(--text-muted);
+    }
+
+    &-value {
+      font-size: var(--font-size-xs);
+      color: var(--text-primary);
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+
+      small {
+        font-weight: 400;
+        color: var(--text-muted);
+      }
+    }
+  }
+
+  &__trend {
+    &-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    &-chart {
+      width: 100%;
+      height: 80px;
+    }
+  }
+}
