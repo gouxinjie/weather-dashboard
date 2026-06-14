@@ -1041,22 +1041,58 @@ export default function Home(): JSX.Element {
           </div>
 
           <div className="weather-home__headline-card weather-home__headline-card--alert">
-            <div className="weather-home__headline-stack">
+            <div className="weather-home__headline-stack weather-home__headline-stack--alert">
               <span>预警状态</span>
-              <div className="weather-home__headline-value-line weather-home__headline-value-line--alert">
-                <span
-                  className={`weather-home__headline-alert-icon weather-home__headline-alert-icon--${hasAlert ? 'warning' : 'safe'}`}
-                  style={alertIconStyle}
-                  aria-hidden="true"
-                >
-                  {hasAlert ? '!' : '✓'}
+              <div
+                className={`weather-home__headline-status weather-home__headline-status--${hasAlert ? 'warning' : 'safe'}`}
+                style={alertIconStyle}
+              >
+                <span className="weather-home__headline-status-icon" aria-hidden="true">
+                  {hasAlert ? (
+                    <svg viewBox="0 0 16 18" focusable="false">
+                      <path
+                        d="M8 1.5 13 3.2v4.6c0 3.1-1.85 5.93-5 7.8-3.15-1.87-5-4.7-5-7.8V3.2L8 1.5Z"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M8 5.1v4.4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                      <circle cx="8" cy="12.25" r="1" fill="currentColor" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 16 18" focusable="false">
+                      <path
+                        d="M8 1.5 13 3.2v4.6c0 3.1-1.85 5.93-5 7.8-3.15-1.87-5-4.7-5-7.8V3.2L8 1.5Z"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="m5.2 8.9 1.9 1.9 3.7-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  )}
                 </span>
-                <strong style={{ color: alertColor }}>
-                  {hasAlert ? '有预警' : '无预警'}
+                <strong>
+                  {hasAlert
+                    ? homeData.overview.alertSummary.highestSeverity
+                      ? `${homeData.overview.alertSummary.highestSeverity}预警`
+                      : '有预警'
+                    : '无预警'}
                 </strong>
-                <em style={{ color: alertColor }}>
-                  {homeData.overview.alertSummary.highestSeverity || '安全'}
-                </em>
               </div>
             </div>
           </div>
