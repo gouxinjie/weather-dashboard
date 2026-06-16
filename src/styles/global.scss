@@ -43,7 +43,7 @@
   --radius-lg: 12px;
 
   /* 字体 */
-  --font-family: 'Aptos', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-family: 'Microsoft YaHei UI', 'Segoe UI Variable', 'PingFang SC', 'Segoe UI', sans-serif;
   --font-size-xs: 11px;
   --font-size-sm: 12px;
   --font-size-md: 14px;
@@ -73,8 +73,9 @@ html {
 body {
   font-family: var(--font-family);
   background:
-    radial-gradient(circle at top left, rgba(31, 73, 90, 0.24), transparent 24%),
-    linear-gradient(180deg, #06111b 0%, #081722 45%, #07131d 100%);
+    radial-gradient(circle at left top, rgba(19, 66, 88, 0.28), transparent 26%),
+    radial-gradient(circle at 80% 0%, rgba(52, 96, 116, 0.12), transparent 22%),
+    linear-gradient(180deg, #051018 0%, #08141d 42%, #07121a 100%);
   color: var(--text-primary);
   line-height: 1.5;
   overflow-x: hidden;
