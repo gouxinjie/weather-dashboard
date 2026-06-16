@@ -37,12 +37,13 @@ import { cacheGet, cacheSet, cacheKey } from '../utils/cache';
 import { CACHE_TTL } from '../constants';
 import { logger } from '../utils/logger';
 import type {
-  OverviewWeatherNow,
   OverviewAirNow,
-  QWeatherHourlyItem,
-  QWeatherDailyItem,
+  OverviewTodaySummary,
+  OverviewWeatherNow,
   QWeatherAirHourlyItem,
   QWeatherAlertItem,
+  QWeatherDailyItem,
+  QWeatherHourlyItem,
   QWeatherIndexItem,
 } from '../types';
 
@@ -442,27 +443,34 @@ export async function getIndices(locationId: string): Promise<QWeatherIndexItem[
  * @param locationId 城市 LocationID
  * @returns 今日摘要（高温、低温、日出日落、紫外线等）
  */
-export async function getTodaySummary(locationId: string): Promise<{
-  tempMax: string;
-  tempMin: string;
-  uvIndex: string;
-  sunrise: string;
-  sunset: string;
-  statsMode: string;
-}> {
+export function buildTodaySummaryFromDaily(daily: QWeatherDailyItem[]): OverviewTodaySummary {
+  const today = daily[0];
+
+  if (today) {
+    return {
+      tempMax: today.tempMax,
+      tempMin: today.tempMin,
+      uvIndex: today.uvIndex,
+      sunrise: today.sunrise,
+      sunset: today.sunset,
+      statsMode: 'current_day_summary',
+    };
+  }
+
+  return {
+    tempMax: '--',
+    tempMin: '--',
+    uvIndex: '--',
+    sunrise: '--:--',
+    sunset: '--:--',
+    statsMode: 'fallback',
+  };
+}
+
+export async function getTodaySummary(locationId: string): Promise<OverviewTodaySummary> {
   try {
     const daily = await getDailyWeather(locationId, 3);
-    const today = daily[0];
-    if (today) {
-      return {
-        tempMax: today.tempMax,
-        tempMin: today.tempMin,
-        uvIndex: today.uvIndex,
-        sunrise: today.sunrise,
-        sunset: today.sunset,
-        statsMode: 'current_day_summary',
-      };
-    }
+    return buildTodaySummaryFromDaily(daily);
   } catch {
     // 兜底使用默认值
   }

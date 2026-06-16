@@ -7,7 +7,8 @@ export default defineConfig({
     port: 3200,
     proxy: {
       '/api': {
-        target: 'http://localhost:3201',
+        // 避免 Windows 下 localhost 双栈解析触发 Vite 代理 ENOBUFS
+        target: 'http://[::1]:3201',
         changeOrigin: true,
       },
     },

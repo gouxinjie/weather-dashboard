@@ -13,6 +13,11 @@ interface ValidationResult {
   errorMessage: string;
 }
 
+/** locationId 解析结果 */
+interface LocationIdValidationResult extends ValidationResult {
+  value: string | null;
+}
+
 /**
  * 校验必填字符串参数
  * @param value 参数值
@@ -36,17 +41,55 @@ export function requiredString(value: unknown, name: string): ValidationResult {
  * @returns 校验结果
  */
 export function validateLocationId(locationId: unknown): ValidationResult {
-  const result = requiredString(locationId, 'locationId');
-  if (!result.valid) return result;
+  const result = parseLocationId(locationId);
+  return {
+    valid: result.valid,
+    errorCode: result.errorCode,
+    errorMessage: result.errorMessage,
+  };
+}
 
-  if (typeof locationId !== 'string' || !/^\d{9}$/.test(locationId)) {
+/**
+ * 解析并校验 locationId
+ * @param locationId 城市 LocationID
+ * @returns 校验结果与规范化后的 LocationID
+ */
+export function parseLocationId(locationId: unknown): LocationIdValidationResult {
+  const result = requiredString(locationId, 'locationId');
+  if (!result.valid) {
+    return {
+      ...result,
+      value: null,
+    };
+  }
+
+  if (typeof locationId !== 'string') {
     return {
       valid: false,
       errorCode: ErrorCodes.INVALID_LOCATION_ID,
-      errorMessage: '无效的城市 ID 格式',
+      errorMessage: '无效的城市 LocationID 格式',
+      value: null,
     };
   }
-  return { valid: true, errorCode: ErrorCodes.INVALID_LOCATION_ID, errorMessage: '' };
+
+  const normalizedLocationId = locationId.trim();
+
+  // 和风天气的 LocationID 既可能是 9 位数字，也可能是字母数字混合 ID
+  if (!/^[A-Za-z0-9]{4,20}$/.test(normalizedLocationId)) {
+    return {
+      valid: false,
+      errorCode: ErrorCodes.INVALID_LOCATION_ID,
+      errorMessage: '无效的城市 LocationID 格式',
+      value: null,
+    };
+  }
+
+  return {
+    valid: true,
+    errorCode: ErrorCodes.INVALID_LOCATION_ID,
+    errorMessage: '',
+    value: normalizedLocationId,
+  };
 }
 
 /**

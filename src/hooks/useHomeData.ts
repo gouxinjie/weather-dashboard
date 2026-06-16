@@ -1,9 +1,9 @@
 /**
  * @file 首页数据 Hook
- * @description 在定位完成后并发获取首页聚合数据和统计详情数据
+ * @description 在定位完成后优先获取首页聚合数据，并在后台补充统计详情
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../utils/request';
 import { useCityStore } from '../stores/cityStore';
 import type { HomeData, StatsDetailData } from '../types';
@@ -29,6 +29,7 @@ interface UseHomeDataResult {
 export function useHomeData(): UseHomeDataResult {
   const locationId = useCityStore((state) => state.locationId);
   const isLocating = useCityStore((state) => state.isLocating);
+  const requestIdRef = useRef(0);
 
   const [homeData, setHomeData] = useState<HomeData | null>(null);
   const [statsDetail, setStatsDetail] = useState<StatsDetailData | null>(null);
@@ -43,27 +44,53 @@ export function useHomeData(): UseHomeDataResult {
       return;
     }
 
+    const currentRequestId = requestIdRef.current + 1;
+    requestIdRef.current = currentRequestId;
+
     setLoading(true);
     setError(null);
+    setStatsDetail(null);
 
     try {
-      const [homeResult, statsResult] = await Promise.all([
-        api.getHomeData(locationId),
-        api.getStatsDetail(locationId).catch(() => null),
-      ]);
+      const homeResult = await api.getHomeData(locationId);
+
+      if (requestIdRef.current !== currentRequestId) {
+        return;
+      }
 
       setHomeData(homeResult);
-      setStatsDetail(statsResult);
+      setLoading(false);
+
+      void api
+        .getStatsDetail(locationId)
+        .then((statsResult) => {
+          if (requestIdRef.current !== currentRequestId) {
+            return;
+          }
+
+          setStatsDetail(statsResult);
+        })
+        .catch(() => {
+          if (requestIdRef.current !== currentRequestId) {
+            return;
+          }
+
+          setStatsDetail(null);
+        });
     } catch (fetchError) {
+      if (requestIdRef.current !== currentRequestId) {
+        return;
+      }
+
       const message = fetchError instanceof Error ? fetchError.message : '首页数据加载失败';
       setError(message);
-    } finally {
       setLoading(false);
     }
   }, [isLocating, locationId]);
 
   useEffect(() => {
     if (isLocating) {
+      requestIdRef.current += 1;
       setLoading(true);
       return;
     }
