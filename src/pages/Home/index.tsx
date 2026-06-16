@@ -1786,7 +1786,9 @@ export default function Home(): JSX.Element {
               <strong>{viewModel.displayMonthlyPrecipitation.value}</strong>
               <em>mm</em>
             </div>
-            <div className="weather-home__precip-wave" />
+            <div className="weather-home__precip-visual">
+              <WeatherIcon code="305" className="weather-home__precip-icon" />
+            </div>
             <div className="weather-home__precip-footnote">
               <span>{viewModel.precipitationDelta}</span>
               <em>{viewModel.displayMonthlyPrecipitation.note}</em>

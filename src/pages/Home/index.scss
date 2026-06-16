@@ -712,6 +712,7 @@
 
   &__hero {
     position: relative;
+    display: flex;
     min-height: 274px;
     padding: 18px 20px 14px;
     border-radius: 16px;
@@ -802,16 +803,19 @@
   }
 
   &__hero-content {
+    flex: 1 1 auto;
+    width: 100%;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 100%;
+    min-height: 0;
   }
 
   &__hero-main {
     display: flex;
+    flex-direction: column;
     align-items: flex-start;
-    gap: 18px;
+    gap: 10px;
     width: min(52%, 360px);
     max-width: 100%;
     min-width: 0;
@@ -843,9 +847,9 @@
     align-items: flex-start;
     flex: 1 1 auto;
     gap: 4px;
-    min-width: 180px;
-    padding-top: 8px;
-    max-width: 224px;
+    min-width: 0;
+    padding-top: 0;
+    max-width: 280px;
 
     h2 {
       color: #eaf2f6;
@@ -1336,35 +1340,34 @@
     }
   }
 
-  &__precip-wave {
+  &__precip-visual {
     position: relative;
-    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    height: 32px;
     margin-top: 6px;
-    border-radius: 999px;
-    overflow: hidden;
-    background:
-      radial-gradient(circle at 30% 55%, rgba(111, 201, 235, 0.28), transparent 22%),
-      radial-gradient(circle at 54% 58%, rgba(111, 201, 235, 0.38), transparent 20%),
-      radial-gradient(circle at 70% 53%, rgba(111, 201, 235, 0.2), transparent 24%);
   }
 
-  &__precip-wave::before,
-  &__precip-wave::after {
+  &__precip-visual::before {
     content: '';
     position: absolute;
-    inset-inline: 0;
-    height: 14px;
-    border-radius: 50%;
-    background: rgba(98, 188, 224, 0.18);
+    left: 0;
+    top: 50%;
+    width: 56px;
+    height: 24px;
+    border-radius: 999px;
+    border: 1px solid rgba(110, 200, 230, 0.22);
+    background: linear-gradient(90deg, rgba(88, 192, 225, 0.12), rgba(102, 206, 235, 0.04));
+    transform: translateY(-50%);
   }
 
-  &__precip-wave::before {
-    bottom: 6px;
-  }
-
-  &__precip-wave::after {
-    bottom: 0;
-    opacity: 0.78;
+  &__precip-icon {
+    position: relative;
+    z-index: 1;
+    color: #87d9ef;
+    font-size: 28px;
+    filter: drop-shadow(0 2px 8px rgba(84, 181, 214, 0.18));
   }
 
   &__precip-footnote {
