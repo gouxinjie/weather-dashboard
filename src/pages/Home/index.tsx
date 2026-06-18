@@ -553,13 +553,129 @@ function pickLifeIndices(indices: IndexItem[]): DisplayIndex[] {
       key: preset.key,
       name: matched?.name || preset.title,
       level: matched?.category || matched?.level || '暂无',
-      text: matched?.text || '当前暂无该指数数据',
+      text: buildLifeIndexBrief(
+        preset.key,
+        matched?.category || matched?.level || '暂无',
+        matched?.text || '当前暂无该指数数据',
+      ),
       icon: preset.icon,
       accent: preset.accent,
     };
   });
 
   return selected;
+}
+
+/**
+ * 生成生活指数卡片的简短说明
+ * @param key 指数标识
+ * @param level 指数等级
+ * @param sourceText 原始描述
+ * @returns 简化后的展示文案
+ */
+function buildLifeIndexBrief(key: string, level: string, sourceText: string): string {
+  const normalizedLevel = level.trim();
+  const fallbackText = summarizeLifeIndexText(sourceText);
+
+  if (key === 'dress') {
+    if (/炎热|热|较热/.test(normalizedLevel)) {
+      return '天气偏热，建议轻薄夏装';
+    }
+
+    if (/冷|凉|较冷/.test(normalizedLevel)) {
+      return '早晚偏凉，建议添薄外套';
+    }
+
+    if (/舒适|温暖|较舒适/.test(normalizedLevel)) {
+      return '体感较舒适，按日常着装即可';
+    }
+
+    return fallbackText;
+  }
+
+  if (key === 'car') {
+    if (/较不宜|不宜/.test(normalizedLevel)) {
+      return '近期有雨，建议暂缓洗车';
+    }
+
+    if (/适宜|宜/.test(normalizedLevel) && !/不宜/.test(normalizedLevel)) {
+      return '天气较稳，适合洗车养护';
+    }
+
+    return fallbackText;
+  }
+
+  if (key === 'sport') {
+    if (/较不宜|不宜/.test(normalizedLevel)) {
+      return '天气偏热，建议减少户外运动';
+    }
+
+    if (/适宜|较适宜|宜/.test(normalizedLevel) && !/不宜/.test(normalizedLevel)) {
+      return '体感尚可，适合适度活动';
+    }
+
+    return fallbackText;
+  }
+
+  if (key === 'cold') {
+    if (/少发|低/.test(normalizedLevel)) {
+      return '感冒风险较低，注意空调温差';
+    }
+
+    if (/较易发|易发|高/.test(normalizedLevel)) {
+      return '早晚注意保暖，谨防受凉感冒';
+    }
+
+    return fallbackText;
+  }
+
+  if (key === 'uv') {
+    if (/很强|强/.test(normalizedLevel)) {
+      return '紫外线较强，外出注意防晒';
+    }
+
+    if (/弱|较弱/.test(normalizedLevel)) {
+      return '紫外线偏弱，日常防晒即可';
+    }
+
+    if (/中等/.test(normalizedLevel)) {
+      return '紫外线中等，外出做好基础防晒';
+    }
+
+    return fallbackText;
+  }
+
+  if (key === 'travel') {
+    if (/不宜|较不宜/.test(normalizedLevel)) {
+      return '天气多变，出行前留意预报';
+    }
+
+    if (/适宜|较适宜|宜/.test(normalizedLevel) && !/不宜/.test(normalizedLevel)) {
+      return '天气较稳，适合安排出行';
+    }
+
+    return fallbackText;
+  }
+
+  return fallbackText;
+}
+
+/**
+ * 提取生活指数原始描述的首句摘要
+ * @param sourceText 原始描述
+ * @returns 简化后的摘要文案
+ */
+function summarizeLifeIndexText(sourceText: string): string {
+  const firstSegment = sourceText
+    .split(/[。；，,.!！?？]/)
+    .map((item) => item.trim())
+    .find((item) => item.length > 0);
+
+  if (!firstSegment) {
+    return '暂无指数说明';
+  }
+
+  return firstSegment.length > 16 ? `${firstSegment.slice(0, 16)}...` : firstSegment;
 }
 
 /**
@@ -1525,18 +1641,21 @@ export default function Home(): JSX.Element {
                 ))}
               </div>
 
-              <div className="weather-home__ratio-strip">
-                {viewModel.weatherRatios.map((item) => (
-                  <div className="weather-home__ratio-item" key={item.type}>
-                    <WeatherIcon
-                      code={resolveWeatherTypeIconCode(item.type)}
-                      className="weather-home__ratio-icon"
-                      label={item.type}
-                    />
-                    <strong>{item.type}</strong>
-                    <em>{Math.round(item.ratio * 100)}%</em>
-                  </div>
-                ))}
+              <div className="weather-home__ratio-group">
+                <div className="weather-home__ratio-caption">本月天气类型占比</div>
+                <div className="weather-home__ratio-strip">
+                  {viewModel.weatherRatios.map((item) => (
+                    <div className="weather-home__ratio-item" key={item.type}>
+                      <WeatherIcon
+                        code={resolveWeatherTypeIconCode(item.type)}
+                        className="weather-home__ratio-icon"
+                        label={item.type}
+                      />
+                      <strong>{item.type}</strong>
+                      <em>{Math.round(item.ratio * 100)}%</em>
+                    </div>
+                  ))}
+                </div>
               </div>
             </section>
 
@@ -1597,17 +1716,24 @@ export default function Home(): JSX.Element {
                   </div>
 
                   <div className="weather-home__hero-copy">
-                    <div className="weather-home__hero-copy-line">
+                    <div className="weather-home__hero-copy-card">
                       <WeatherIcon
                         code={homeData.overview.weatherNow.icon}
                         className="weather-home__hero-glyph"
                         label={homeData.overview.weatherNow.text}
                       />
-                      <span>体感温度 {homeData.overview.weatherNow.feelsLike}°C</span>
+                      <div className="weather-home__hero-copy-body">
+                        <div className="weather-home__hero-copy-line">
+                          <span className="weather-home__hero-copy-label">体感温度</span>
+                          <span className="weather-home__hero-copy-value">
+                            {homeData.overview.weatherNow.feelsLike}°C
+                          </span>
+                        </div>
+                        <h2>{homeData.overview.weatherNow.text}</h2>
+                        <p>{homeData.minutely.summary || '未来两小时天气平稳，当前无明显降水。'}</p>
+                        <span className="weather-home__hero-advice">{viewModel.heroAdvice}</span>
+                      </div>
                     </div>
-                    <h2>{homeData.overview.weatherNow.text}</h2>
-                    <p>{homeData.minutely.summary || '未来两小时天气平稳，当前无明显降水。'}</p>
-                    <span className="weather-home__hero-advice">{viewModel.heroAdvice}</span>
                   </div>
                 </div>
 
@@ -1617,13 +1743,13 @@ export default function Home(): JSX.Element {
                       className={`weather-home__hero-metric weather-home__hero-metric--${item.accent}`}
                       key={item.key}
                     >
-                      <span className="weather-home__hero-metric-icon" aria-hidden="true">
-                        {item.icon}
-                      </span>
-                      <div className="weather-home__hero-metric-copy">
-                        <span>{item.label}</span>
-                        <strong>{item.value}</strong>
+                      <div className="weather-home__hero-metric-head">
+                        <span className="weather-home__hero-metric-icon" aria-hidden="true">
+                          {item.icon}
+                        </span>
+                        <span className="weather-home__hero-metric-label">{item.label}</span>
                       </div>
+                      <strong className="weather-home__hero-metric-value">{item.value}</strong>
                     </div>
                   ))}
                 </div>
