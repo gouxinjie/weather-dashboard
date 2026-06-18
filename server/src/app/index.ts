@@ -4,6 +4,7 @@
  */
 
 import express from 'express';
+import type { Server } from 'node:http';
 import cors from 'cors';
 import { config } from './config';
 import { initDatabase } from '../db';
@@ -59,7 +60,37 @@ app.use(
 
 // ==================== 启动服务 ====================
 
-app.listen(config.port, () => {
+/**
+ * @function handleServerStartupError
+ * @description 处理服务启动阶段的端口占用与系统错误，避免未捕获异常导致进程直接崩溃
+ * @param error 类型：NodeJS.ErrnoException；含义：Node 服务启动时抛出的系统错误；是否必填：是；默认值：无
+ * @returns 类型：void；含义：无返回值
+ * @throws 无
+ */
+function handleServerStartupError(error: NodeJS.ErrnoException): void {
+  if (error.code === 'EADDRINUSE') {
+    logger.error(`服务启动失败，端口 ${config.port} 已被占用`, {
+      port: config.port,
+      code: error.code,
+    });
+    logger.error('请先停止已运行的后端进程，或在 server/.env 中修改 PORT 后重试');
+    process.exit(1);
+    return;
+  }
+
+  logger.error('服务启动失败', {
+    message: error.message,
+    code: error.code,
+    stack: error.stack,
+  });
+  process.exit(1);
+}
+
+const server: Server = app.listen(config.port);
+
+server.once('error', handleServerStartupError);
+
+server.once('listening', () => {
   logger.info(`服务已启动`, { port: config.port });
   logger.info(`API 地址: http://localhost:${config.port}`);
 
