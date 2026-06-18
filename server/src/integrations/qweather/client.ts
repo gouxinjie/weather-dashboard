@@ -11,6 +11,9 @@ import type {
   QWeatherAirNow,
   QWeatherCityResult,
   QWeatherDailyItem,
+  QWeatherHistoricalAirHourlyItem,
+  QWeatherHistoricalWeatherDaily,
+  QWeatherHistoricalWeatherHourlyItem,
   QWeatherHourlyItem,
   QWeatherIndexItem,
   QWeatherMinutelyItem,
@@ -397,6 +400,30 @@ export const qweatherApi = {
   },
 
   /**
+   * 获取历史天气
+   * @param locationId 城市 LocationID
+   * @param date 日期，格式 yyyyMMdd
+   * @returns 历史天气日级与小时级数据
+   */
+  async getHistoricalWeather(
+    locationId: string,
+    date: string
+  ): Promise<{
+    weatherDaily: QWeatherHistoricalWeatherDaily;
+    weatherHourly: QWeatherHistoricalWeatherHourlyItem[];
+  }> {
+    const body = await qweatherRequest('/v7/historical/weather', {
+      location: locationId,
+      date,
+    });
+
+    return {
+      weatherDaily: getBodyField<QWeatherHistoricalWeatherDaily>(body, 'weatherDaily'),
+      weatherHourly: getBodyField<QWeatherHistoricalWeatherHourlyItem[]>(body, 'weatherHourly'),
+    };
+  },
+
+  /**
    * 获取分钟级降水
    * @param lat 纬度
    * @param lon 经度
@@ -465,6 +492,23 @@ export const qweatherApi = {
         primaryPollutant: primaryIndex?.primaryPollutant?.name || '',
       };
     });
+  },
+
+  /**
+   * 获取历史空气质量
+   * @param locationId 城市 LocationID
+   * @param date 日期，格式 yyyyMMdd
+   * @returns 历史空气质量小时数据
+   */
+  async getHistoricalAir(
+    locationId: string,
+    date: string
+  ): Promise<QWeatherHistoricalAirHourlyItem[]> {
+    const body = await qweatherRequest('/v7/historical/air', {
+      location: locationId,
+      date,
+    });
+    return getBodyField<QWeatherHistoricalAirHourlyItem[]>(body, 'airHourly');
   },
 
   /**

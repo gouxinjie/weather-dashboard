@@ -126,6 +126,51 @@ export interface QWeatherDailyItem {
   windScaleDay: string;
 }
 
+/** 和风历史天气日级数据 */
+export interface QWeatherHistoricalWeatherDaily {
+  date: string;
+  sunrise: string;
+  sunset: string;
+  moonrise: string;
+  moonset: string;
+  moonPhase: string;
+  tempMax: string;
+  tempMin: string;
+  humidity: string;
+  precip: string;
+  pressure: string;
+}
+
+/** 和风历史天气小时数据 */
+export interface QWeatherHistoricalWeatherHourlyItem {
+  time: string;
+  temp: string;
+  icon: string;
+  text: string;
+  precip: string;
+  wind360: string;
+  windDir: string;
+  windScale: string;
+  windSpeed: string;
+  humidity: string;
+  pressure: string;
+}
+
+/** 和风历史空气质量小时数据 */
+export interface QWeatherHistoricalAirHourlyItem {
+  pubTime: string;
+  aqi: string;
+  level: string;
+  category: string;
+  primary: string;
+  pm10: string;
+  pm2p5: string;
+  no2: string;
+  so2: string;
+  co: string;
+  o3: string;
+}
+
 /** 和风天气分钟级降水原始项 */
 export interface QWeatherMinutelyItem {
   fxTime: string;
@@ -262,7 +307,7 @@ export interface DailyStats {
   avg_temp: number;
   precipitation: number;
   weather_type: string;
-  aqi_avg: number;
+  aqi_avg: number | null;
   sample_count: number;
   expected_count: number;
   is_partial: number;
@@ -425,9 +470,23 @@ export interface WeatherTypeRatioItem {
   ratio: number;
 }
 
+/** 统计详情页日序列项 */
+export interface StatsDetailDailyItem {
+  statDate: string;
+  maxTemp: number;
+  minTemp: number;
+  avgTemp: number;
+  precipitation: number;
+  weatherType: string;
+  aqiAvg: number | null;
+  sampleCount: number;
+  expectedCount: number;
+  isPartial: boolean;
+}
+
 /** 统计详情响应 */
 export interface StatsDetailResponse {
   weeklyStats: WeeklyStatsResponse;
   monthlyStats: MonthlyStatsResponse;
-  daily30: DailyStats[];
+  daily30: StatsDetailDailyItem[];
 }

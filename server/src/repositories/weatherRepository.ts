@@ -60,6 +60,29 @@ export function getLatestWeatherNow(locationId: string): WeatherNowSnapshot | un
   return stmt.get(locationId) as WeatherNowSnapshot | undefined;
 }
 
+/**
+ * 获取指定日期范围内的实时天气快照
+ * @param locationId 城市 LocationID
+ * @param startDate 开始日期，格式 yyyy-MM-dd
+ * @param endDate 结束日期，格式 yyyy-MM-dd
+ * @returns 天气快照列表
+ */
+export function getWeatherNowHistoryRange(
+  locationId: string,
+  startDate: string,
+  endDate: string
+): WeatherNowSnapshot[] {
+  const db = getDb();
+  const stmt = db.prepare(`
+    SELECT * FROM weather_now_snapshots
+    WHERE location_id = ?
+      AND substr(obs_time, 1, 10) >= ?
+      AND substr(obs_time, 1, 10) <= ?
+    ORDER BY obs_time ASC
+  `);
+  return stmt.all(locationId, startDate, endDate) as WeatherNowSnapshot[];
+}
+
 // ==================== 逐小时快照 ====================
 
 /**
@@ -337,6 +360,29 @@ export function getAirNowHistory24h(locationId: string): AirNowSnapshot[] {
     ORDER BY created_at ASC
   `);
   return stmt.all(locationId) as AirNowSnapshot[];
+}
+
+/**
+ * 获取指定日期范围内的空气质量快照
+ * @param locationId 城市 LocationID
+ * @param startDate 开始日期，格式 yyyy-MM-dd
+ * @param endDate 结束日期，格式 yyyy-MM-dd
+ * @returns 空气质量快照列表
+ */
+export function getAirNowHistoryRange(
+  locationId: string,
+  startDate: string,
+  endDate: string
+): AirNowSnapshot[] {
+  const db = getDb();
+  const stmt = db.prepare(`
+    SELECT * FROM air_now_snapshots
+    WHERE location_id = ?
+      AND substr(pub_time, 1, 10) >= ?
+      AND substr(pub_time, 1, 10) <= ?
+    ORDER BY pub_time ASC
+  `);
+  return stmt.all(locationId, startDate, endDate) as AirNowSnapshot[];
 }
 
 // ==================== 空气质量小时预报快照 ====================

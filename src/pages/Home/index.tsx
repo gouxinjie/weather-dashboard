@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { EChartsOption } from 'echarts';
+import { useNavigate } from 'react-router-dom';
 import { DashboardChart } from '../../components/commons/DashboardChart';
 import { WeatherIcon } from '../../components/commons/WeatherIcon';
 import { CityDrawer } from '../../components/business/CityDrawer';
@@ -279,10 +280,10 @@ function buildWeatherRatiosFromDaily(daily: DailyItem[]): WeatherTypeRatio[] {
 function getDisplayWeatherRatioSummary(homeData: HomeData): DisplayWeatherRatioSummary {
   if (homeData.monthlyStats.weatherTypeRatio.length > 0) {
     return {
-      title: '近 30 天天气类型占比',
+      title: '当前月天气类型占比',
       note:
         homeData.monthlyStats.sampleDays > 0
-          ? `统计样本 ${homeData.monthlyStats.sampleDays} 天`
+          ? `当前月已采样 ${homeData.monthlyStats.sampleDays} 天`
           : '本地统计样本',
       items: homeData.monthlyStats.weatherTypeRatio,
     };
@@ -303,9 +304,9 @@ function getDisplayWeatherRatioSummary(homeData: HomeData): DisplayWeatherRatioS
 function getDisplayMonthlyPrecipitation(homeData: HomeData): DisplayPrecipitationSummary {
   if (homeData.monthlyStats.sampleDays > 0 && hasMetricValue(homeData.monthlyStats.totalPrecipitation)) {
     return {
-      title: '近 30 天累计降水',
+      title: '当前月累计降水',
       value: homeData.monthlyStats.totalPrecipitation,
-      note: `统计样本 ${homeData.monthlyStats.sampleDays} 天`,
+      note: `当前月已采样 ${homeData.monthlyStats.sampleDays} 天`,
       isForecast: false,
     };
   }
@@ -843,17 +844,17 @@ function buildMonthlyHighlights(
 
   return {
     title: '未来 7 天天气提示',
-    note: '近 30 天实测样本不足，以下内容基于当前预报',
+    note: '当前月实测样本不足，以下内容基于当前预报',
     items: [
       `${formatShortDate(hotDay.fxDate)} 预报最高气温 ${hotDay.tempMax}°C`,
       `${formatShortDate(rainDay.fxDate)} 预报降水 ${rainDay.precip}mm`,
-      '近 30 天实测样本不足，以下提示以当前预报为参考',
+      '当前月实测样本不足，以下提示以当前预报为参考',
     ],
   };
 }
 
 /**
- * 转换 30 天累计降水比较值
+ * 转换近 30 天累计降水比较值
  * @param statsDetail 统计详情
  * @returns 对比文本
  */
@@ -1401,11 +1402,22 @@ function SummaryRow({ metric }: { metric: SummaryMetric }): JSX.Element {
  * @returns 首页节点
  */
 export default function Home(): JSX.Element {
+  const navigate = useNavigate();
   useLocation();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const { homeData, statsDetail, loading, error, refetch } = useHomeData();
+
+  /**
+   * 进入统计详情页
+   * @param sectionId 目标分区，必填，默认值：trend
+   */
+  function openStatsDetail(
+    sectionId: 'trend' | 'weekly' | 'monthly' | 'ratio' | 'notes' = 'trend'
+  ): void {
+    navigate(`/stats#${sectionId}`);
+  }
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -1633,6 +1645,13 @@ export default function Home(): JSX.Element {
             <section className="weather-home__panel weather-home__panel--summary">
               <div className="weather-home__panel-head">
                 <h2>天气统计摘要</h2>
+                <button
+                  className="weather-home__panel-action"
+                  onClick={() => openStatsDetail('trend')}
+                  type="button"
+                >
+                  统计详情
+                </button>
               </div>
 
               <div className="weather-home__summary-list">

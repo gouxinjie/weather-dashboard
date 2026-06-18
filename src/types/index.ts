@@ -169,7 +169,7 @@ export interface DailyStatsRecord {
   avgTemp: number;
   precipitation: number;
   weatherType: string;
-  aqiAvg: number;
+  aqiAvg: number | null;
   sampleCount: number;
   expectedCount: number;
   isPartial: boolean;

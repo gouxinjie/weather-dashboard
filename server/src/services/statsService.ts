@@ -7,9 +7,16 @@ import {
   getDailyStatsRange,
   getCurrentWeeklyStats,
   getCurrentMonthlyStats,
+  upsertDailyStats,
   upsertWeeklyStats,
   upsertMonthlyStats,
 } from '../repositories/statsRepository';
+import {
+  getAirNowHistoryRange,
+  getLatestDaily,
+  getWeatherNowHistoryRange,
+} from '../repositories/weatherRepository';
+import { qweatherApi } from '../integrations/qweather/client';
 import { cacheGet, cacheSet, cacheKey } from '../utils/cache';
 import { CACHE_TTL, MIN_SAMPLE_COMPLETENESS } from '../constants';
 import { logger } from '../utils/logger';
@@ -19,7 +26,14 @@ import type {
   DailyStats,
   WeatherTypeRatioItem,
   StatsDetailResponse,
+  StatsDetailDailyItem,
+  QWeatherHistoricalAirHourlyItem,
+  QWeatherHistoricalWeatherDaily,
+  QWeatherHistoricalWeatherHourlyItem,
 } from '../types';
+
+/** 和风历史接口可回填的最大天数 */
+const HISTORY_BACKFILL_DAYS = 10;
 
 /**
  * 获取当前周统计
@@ -45,7 +59,7 @@ export async function getWeeklyStats(locationId: string): Promise<WeeklyStatsRes
     const weekEnd = formatDate(sunday);
 
     // 从日统计聚合
-    const dailyStats = getDailyStatsRange(locationId, weekStart, weekEnd);
+    const dailyStats = await resolveDailyStatsRange(locationId, weekStart, weekEnd);
 
     if (dailyStats.length === 0) {
       // 尝试从数据库已有统计获取
@@ -119,7 +133,7 @@ export async function getMonthlyStats(locationId: string): Promise<MonthlyStatsR
     // 已过天数（截至今天）
     const elapsedDays = now.getDate();
 
-    const dailyStats = getDailyStatsRange(locationId, monthStart, monthEnd);
+    const dailyStats = await resolveDailyStatsRange(locationId, monthStart, monthEnd);
 
     if (dailyStats.length === 0) {
       const existing = getCurrentMonthlyStats(locationId);
@@ -173,7 +187,7 @@ export async function getMonthlyStats(locationId: string): Promise<MonthlyStatsR
 }
 
 /**
- * 获取统计详情（30天数据）
+ * 获取统计详情（近 30 天日序列）
  * @param locationId 城市 LocationID
  * @returns 统计详情
  */
@@ -187,9 +201,202 @@ export async function getStatsDetail(locationId: string): Promise<StatsDetailRes
   const startDate = formatDate(thirtyDaysAgo);
   const endDate = formatDate(now);
 
-  const daily30 = getDailyStatsRange(locationId, startDate, endDate);
+  const resolvedDailyStats = await resolveDailyStatsRange(locationId, startDate, endDate);
 
-  return { weeklyStats, monthlyStats, daily30 };
+  const resolvedWeeklyStats =
+    weeklyStats.statsStatus === 'no_data'
+      ? buildWeeklyResponseFromDailyStats(resolvedDailyStats, now)
+      : weeklyStats;
+  const resolvedMonthlyStats =
+    monthlyStats.statsStatus === 'no_data'
+      ? buildMonthlyResponseFromDailyStats(resolvedDailyStats, now)
+      : monthlyStats;
+
+  return {
+    weeklyStats: resolvedWeeklyStats,
+    monthlyStats: resolvedMonthlyStats,
+    daily30: resolvedDailyStats.map(formatStatsDetailDailyItem),
+  };
+}
+
+/**
+ * 解析指定日期范围的日统计数据
+ * @param locationId 城市 LocationID
+ * @param startDate 开始日期
+ * @param endDate 结束日期
+ * @returns 合并后的日统计列表
+ */
+async function resolveDailyStatsRange(
+  locationId: string,
+  startDate: string,
+  endDate: string
+): Promise<DailyStats[]> {
+  await ensureRecentHistoricalDailyStats(locationId, startDate, endDate);
+
+  const storedDailyStats = getDailyStatsRange(locationId, startDate, endDate);
+  const fallbackDailyStats = buildFallbackDailyStats(locationId, startDate, endDate);
+
+  return mergeDailyStats(storedDailyStats, fallbackDailyStats);
+}
+
+/**
+ * 回填最近 10 天内缺失或不完整的历史日统计
+ * @param locationId 城市 LocationID
+ * @param startDate 统计开始日期
+ * @param endDate 统计结束日期
+ */
+async function ensureRecentHistoricalDailyStats(
+  locationId: string,
+  startDate: string,
+  endDate: string
+): Promise<void> {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  const historyWindowStart = new Date(today);
+  historyWindowStart.setDate(today.getDate() - HISTORY_BACKFILL_DAYS);
+
+  const effectiveStart = startDate > formatDate(historyWindowStart) ? startDate : formatDate(historyWindowStart);
+  const effectiveEnd = endDate < formatDate(yesterday) ? endDate : formatDate(yesterday);
+
+  if (effectiveStart > effectiveEnd) {
+    return;
+  }
+
+  const existingStats = getDailyStatsRange(locationId, effectiveStart, effectiveEnd);
+  const existingStatsMap = new Map(existingStats.map((item) => [item.stat_date, item]));
+  const targetDates = buildDateRange(effectiveStart, effectiveEnd);
+
+  for (const statDate of targetDates) {
+    const existing = existingStatsMap.get(statDate);
+    const shouldBackfill =
+      !existing ||
+      existing.is_partial === 1 ||
+      existing.sample_count < 24 ||
+      existing.aqi_avg === null ||
+      existing.aqi_avg <= 0;
+
+    if (!shouldBackfill) {
+      continue;
+    }
+
+    try {
+      const [weatherHistory, airHistory] = await Promise.all([
+        qweatherApi.getHistoricalWeather(locationId, toCompactDate(statDate)),
+        qweatherApi.getHistoricalAir(locationId, toCompactDate(statDate)),
+      ]);
+
+      upsertDailyStats(buildDailyStatsFromHistorical(locationId, statDate, weatherHistory.weatherDaily, weatherHistory.weatherHourly, airHistory));
+    } catch (error) {
+      logger.warn('历史统计回填失败，继续使用本地快照兜底', {
+        locationId,
+        statDate,
+        error: error instanceof Error ? error.message : '未知错误',
+      });
+    }
+  }
+}
+
+/**
+ * 将历史接口数据聚合为日统计
+ * @param locationId 城市 LocationID
+ * @param statDate 统计日期
+ * @param weatherDaily 历史天气日级数据
+ * @param weatherHourly 历史天气小时数据
+ * @param airHourly 历史空气质量小时数据
+ * @returns 可落库的日统计数据
+ */
+function buildDailyStatsFromHistorical(
+  locationId: string,
+  statDate: string,
+  weatherDaily: QWeatherHistoricalWeatherDaily,
+  weatherHourly: QWeatherHistoricalWeatherHourlyItem[],
+  airHourly: QWeatherHistoricalAirHourlyItem[]
+): Omit<DailyStats, 'id' | 'created_at'> {
+  const weatherSampleCount = weatherHourly.length;
+  const airSampleCount = airHourly.length;
+  const pairedSampleCount = Math.min(weatherSampleCount, airSampleCount);
+  const hourlyTemps = weatherHourly
+    .map((item) => toNumber(item.temp))
+    .filter((item) => Number.isFinite(item));
+  const avgTemp =
+    hourlyTemps.length > 0
+      ? hourlyTemps.reduce((sum, current) => sum + current, 0) / hourlyTemps.length
+      : (toNumber(weatherDaily.tempMax) + toNumber(weatherDaily.tempMin)) / 2;
+  const aqiValues = airHourly
+    .map((item) => toNumber(item.aqi))
+    .filter((item) => item > 0);
+
+  return {
+    location_id: locationId,
+    stat_date: statDate,
+    max_temp: toNumber(weatherDaily.tempMax),
+    min_temp: toNumber(weatherDaily.tempMin),
+    avg_temp: avgTemp,
+    precipitation: toNumber(weatherDaily.precip),
+    weather_type: pickMostFrequentText(weatherHourly.map((item) => item.text)) || '暂无数据',
+    aqi_avg:
+      aqiValues.length > 0
+        ? aqiValues.reduce((sum, current) => sum + current, 0) / aqiValues.length
+        : null,
+    sample_count: pairedSampleCount,
+    expected_count: 24,
+    is_partial: weatherSampleCount < 24 || airSampleCount < 24 ? 1 : 0,
+  };
+}
+
+/**
+ * 合并已聚合统计与快照兜底统计
+ * @param storedDailyStats 已落库的日统计
+ * @param fallbackDailyStats 基于快照的兜底日统计
+ * @returns 合并后的日统计列表
+ */
+function mergeDailyStats(
+  storedDailyStats: DailyStats[],
+  fallbackDailyStats: DailyStats[]
+): DailyStats[] {
+  const dailyStatsMap = new Map<string, DailyStats>();
+
+  fallbackDailyStats.forEach((item) => {
+    dailyStatsMap.set(item.stat_date, item);
+  });
+
+  storedDailyStats.forEach((item) => {
+    dailyStatsMap.set(item.stat_date, item);
+  });
+
+  return Array.from(dailyStatsMap.values()).sort((previous, current) =>
+    previous.stat_date.localeCompare(current.stat_date)
+  );
+}
+
+/**
+ * 构建日期范围列表
+ * @param startDate 开始日期
+ * @param endDate 结束日期
+ * @returns 日期字符串列表
+ */
+function buildDateRange(startDate: string, endDate: string): string[] {
+  const result: string[] = [];
+  const cursor = new Date(`${startDate}T00:00:00`);
+  const target = new Date(`${endDate}T00:00:00`);
+
+  while (cursor <= target) {
+    result.push(formatDate(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return result;
+}
+
+/**
+ * 转换为和风历史接口要求的 yyyyMMdd 日期
+ * @param statDate 日期字符串
+ * @returns 紧凑格式日期
+ */
+function toCompactDate(statDate: string): string {
+  return statDate.replace(/-/g, '');
 }
 
 // ==================== 聚合计算函数 ====================
@@ -335,7 +542,205 @@ function aggregateMonthly(
   };
 }
 
+/**
+ * 基于快照兜底构建日统计序列
+ * @param locationId 城市 LocationID
+ * @param startDate 开始日期
+ * @param endDate 结束日期
+ * @returns 日统计列表
+ */
+function buildFallbackDailyStats(
+  locationId: string,
+  startDate: string,
+  endDate: string
+): DailyStats[] {
+  const weatherHistory = getWeatherNowHistoryRange(locationId, startDate, endDate);
+  const airHistory = getAirNowHistoryRange(locationId, startDate, endDate);
+  const latestDaily = getLatestDaily(locationId, 30).filter(
+    (item) => item.fxDate >= startDate && item.fxDate <= endDate
+  );
+
+  const weatherGroupMap = groupByDate(weatherHistory, (item) => item.obs_time);
+  const airGroupMap = groupByDate(airHistory, (item) => item.pub_time);
+  const forecastMap = new Map(latestDaily.map((item) => [item.fxDate, item]));
+  const dateSet = new Set<string>([
+    ...weatherGroupMap.keys(),
+    ...airGroupMap.keys(),
+    ...forecastMap.keys(),
+  ]);
+  const sortedDates = Array.from(dateSet).sort((previous, current) =>
+    previous.localeCompare(current)
+  );
+
+  return sortedDates.map((dateText, index) => {
+    const weatherItems = weatherGroupMap.get(dateText) || [];
+    const airItems = airGroupMap.get(dateText) || [];
+    const forecastItem = forecastMap.get(dateText);
+    const weatherSampleCount = weatherItems.length;
+    const airSampleCount = airItems.length;
+    const pairedSampleCount = Math.min(weatherSampleCount, airSampleCount);
+    const expectedCount = weatherSampleCount > 0 || airSampleCount > 0 ? 24 : 0;
+
+    const temperatureValues = weatherItems.map((item) => item.temp);
+    const avgTemp =
+      temperatureValues.length > 0
+        ? temperatureValues.reduce((sum, current) => sum + current, 0) / temperatureValues.length
+        : forecastItem
+          ? (toNumber(forecastItem.tempMax) + toNumber(forecastItem.tempMin)) / 2
+          : 0;
+    const maxTemp =
+      temperatureValues.length > 0
+        ? Math.max(...temperatureValues)
+        : forecastItem
+          ? toNumber(forecastItem.tempMax)
+          : 0;
+    const minTemp =
+      temperatureValues.length > 0
+        ? Math.min(...temperatureValues)
+        : forecastItem
+          ? toNumber(forecastItem.tempMin)
+          : 0;
+    const precipitationValues = weatherItems.map((item) => item.precip);
+    const precipitation =
+      weatherSampleCount > 0
+        ? Math.max(...precipitationValues)
+        : forecastItem !== undefined
+          ? toNumber(forecastItem.precip)
+          : 0;
+    const weatherType =
+      pickMostFrequentText(weatherItems.map((item) => item.text)) ||
+      forecastItem?.textDay ||
+      '暂无数据';
+    const aqiAvg =
+      airItems.length > 0
+        ? airItems.reduce((sum, current) => sum + current.aqi, 0) / airItems.length
+        : null;
+    const createdAt =
+      weatherItems[weatherItems.length - 1]?.obs_time ||
+      airItems[airItems.length - 1]?.pub_time ||
+      `${dateText} 00:00:00`;
+
+    return {
+      id: -(index + 1),
+      location_id: locationId,
+      stat_date: dateText,
+      max_temp: maxTemp,
+      min_temp: minTemp,
+      avg_temp: avgTemp,
+      precipitation,
+      weather_type: weatherType,
+      aqi_avg: aqiAvg,
+      sample_count: pairedSampleCount,
+      expected_count: expectedCount,
+      is_partial: expectedCount === 0 || pairedSampleCount < 24 ? 1 : 0,
+      created_at: createdAt,
+    };
+  });
+}
+
+/**
+ * 从日统计构建周统计响应
+ * @param dailyStats 日统计列表
+ * @param now 当前日期
+ * @returns 周统计响应
+ */
+function buildWeeklyResponseFromDailyStats(
+  dailyStats: DailyStats[],
+  now: Date
+): WeeklyStatsResponse {
+  const dayOfWeek = now.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + mondayOffset);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const weekStart = formatDate(monday);
+  const weekEnd = formatDate(sunday);
+  const currentWeekDaily = dailyStats.filter(
+    (item) => item.stat_date >= weekStart && item.stat_date <= weekEnd
+  );
+
+  if (currentWeekDaily.length === 0) {
+    return {
+      weekStart,
+      weekEnd,
+      avgTemp: '--',
+      totalPrecipitation: '0',
+      rainyDays: 0,
+      weatherTypeRatio: [],
+      aqiAvg: '--',
+      sampleDays: 0,
+      expectedDays: 7,
+      statsStatus: 'no_data',
+    };
+  }
+
+  return formatAggregatedWeekly(aggregateWeekly(currentWeekDaily, weekStart, weekEnd), weekStart, weekEnd);
+}
+
+/**
+ * 从日统计构建月统计响应
+ * @param dailyStats 日统计列表
+ * @param now 当前日期
+ * @returns 月统计响应
+ */
+function buildMonthlyResponseFromDailyStats(
+  dailyStats: DailyStats[],
+  now: Date
+): MonthlyStatsResponse {
+  const monthText = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const monthStart = `${monthText}-01`;
+  const monthEnd = formatDate(now);
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const elapsedDays = now.getDate();
+  const currentMonthDaily = dailyStats.filter(
+    (item) => item.stat_date >= monthStart && item.stat_date <= monthEnd
+  );
+
+  if (currentMonthDaily.length === 0) {
+    return {
+      month: monthText,
+      avgTemp: '--',
+      totalPrecipitation: '0',
+      rainyDays: 0,
+      weatherTypeRatio: [],
+      aqiAvg: '--',
+      sampleDays: 0,
+      expectedDays: daysInMonth,
+      isPartialMonth: elapsedDays < daysInMonth,
+      statsMode: 'partial_month',
+      statsStatus: 'no_data',
+    };
+  }
+
+  return formatAggregatedMonthly(
+    aggregateMonthly(currentMonthDaily, monthText, daysInMonth, elapsedDays),
+    monthText,
+    daysInMonth
+  );
+}
+
 // ==================== 格式化函数 ====================
+
+/**
+ * 将日统计记录格式化为详情页响应项
+ * @param record 日统计记录
+ * @returns 详情页日序列项
+ */
+function formatStatsDetailDailyItem(record: DailyStats): StatsDetailDailyItem {
+  return {
+    statDate: record.stat_date,
+    maxTemp: record.max_temp ?? 0,
+    minTemp: record.min_temp ?? 0,
+    avgTemp: record.avg_temp ?? 0,
+    precipitation: record.precipitation,
+    weatherType: record.weather_type,
+    aqiAvg: record.aqi_avg,
+    sampleCount: record.sample_count,
+    expectedCount: record.expected_count,
+    isPartial: record.is_partial === 1,
+  };
+}
 
 function formatWeeklyResponse(record: {
   week_start: string;
@@ -454,4 +859,70 @@ function formatDate(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+/**
+ * 安全转换数字
+ * @param value 原始值
+ * @returns 数字结果
+ */
+function toNumber(value: string | number | null | undefined): number {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value !== 'string' || value.trim() === '') {
+    return 0;
+  }
+
+  const parsedValue = Number.parseFloat(value);
+  return Number.isFinite(parsedValue) ? parsedValue : 0;
+}
+
+/**
+ * 按日期分组
+ * @param items 原始列表
+ * @param getDateValue 取日期方法
+ * @returns 分组 Map
+ */
+function groupByDate<T>(items: T[], getDateValue: (item: T) => string): Map<string, T[]> {
+  const groupedMap = new Map<string, T[]>();
+
+  items.forEach((item) => {
+    const dateText = getDateValue(item).slice(0, 10);
+    const currentItems = groupedMap.get(dateText) || [];
+    currentItems.push(item);
+    groupedMap.set(dateText, currentItems);
+  });
+
+  return groupedMap;
+}
+
+/**
+ * 选出出现次数最多的天气文本
+ * @param values 文本列表
+ * @returns 最常见的文本
+ */
+function pickMostFrequentText(values: string[]): string {
+  const counter = new Map<string, number>();
+
+  values.forEach((item) => {
+    if (!item) {
+      return;
+    }
+
+    counter.set(item, (counter.get(item) || 0) + 1);
+  });
+
+  let result = '';
+  let maxCount = 0;
+
+  counter.forEach((count, text) => {
+    if (count > maxCount) {
+      result = text;
+      maxCount = count;
+    }
+  });
+
+  return result;
 }
