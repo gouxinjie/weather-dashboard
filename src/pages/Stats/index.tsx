@@ -3,14 +3,15 @@
  * @description 统计详情页，展示最近 10 天趋势、周月明细、天气类型占比与数据说明
  * @author
  * @created 2026-06-13
- * @updated 2026-06-18
+ * @updated 2026-06-19
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { EChartsOption } from 'echarts';
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
-import cityPreviewImage from '../../assets/hero-rain-reference.png';
+import cityPreviewImage from '../../assets/bg.png';
+import { BrandMark } from '../../components/commons/BrandMark';
 import { DashboardChart } from '../../components/commons/DashboardChart';
 import { WeatherIcon } from '../../components/commons/WeatherIcon';
 import { AQI_CATEGORY_COLORS } from '../../constants';
@@ -105,6 +106,152 @@ const TREND_OPTIONS: Array<{ label: string; value?: TrendRange; disabled?: boole
 const WEATHER_RATIO_FALLBACK_COLORS = ['#dea63b', '#42bbe0', '#5e95ca', '#b7b8b5', '#4d86bb', '#78a8d6'];
 
 /**
+ * 获取侧边栏导航标题
+ * @param sectionId 分区标识，必填，默认值：无
+ * @returns 标题文本
+ */
+function getSidebarNavLabel(sectionId: SectionId): string {
+  switch (sectionId) {
+    case 'trend':
+      return '近10天趋势';
+    case 'weekly':
+      return '周统计明细';
+    case 'monthly':
+      return '月统计明细';
+    case 'ratio':
+      return '天气类型占比';
+    case 'notes':
+      return '数据说明';
+    default:
+      return '';
+  }
+}
+
+/**
+ * 渲染侧边栏导航图标
+ * @param sectionId 分区标识，必填，默认值：无
+ * @returns 图标节点
+ */
+function renderSidebarIcon(sectionId: SectionId): JSX.Element {
+  switch (sectionId) {
+    case 'trend':
+      return (
+        <svg viewBox="0 0 16 16" focusable="false">
+          <path
+            d="M3.2 11.7V8.8M6.6 11.7V6.6M10 11.7V4.9M13 11.7V9.2"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeWidth="1.2"
+          />
+          <path
+            d="m3.2 8.8 3.4-2.2 3.4-1.7 3 4.1"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.15"
+          />
+          <circle cx="3.2" cy="8.8" fill="currentColor" r="0.8" />
+          <circle cx="6.6" cy="6.6" fill="currentColor" r="0.8" />
+          <circle cx="10" cy="4.9" fill="currentColor" r="0.8" />
+          <circle cx="13" cy="9" fill="currentColor" r="0.8" />
+          <path
+            d="M2.4 12.5h11.2"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeWidth="1.05"
+          />
+        </svg>
+      );
+    case 'weekly':
+      return (
+        <svg viewBox="0 0 16 16" focusable="false">
+          <path
+            d="M3.4 10.8 6.1 7.4 8.4 8.7 12.3 4.8"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.15"
+          />
+          <circle cx="3.4" cy="10.8" fill="currentColor" r="1" />
+          <circle cx="6.1" cy="7.4" fill="currentColor" r="1" />
+          <circle cx="8.4" cy="8.7" fill="currentColor" r="1" />
+          <circle cx="12.3" cy="4.8" fill="currentColor" r="1" />
+          <path
+            d="M3.1 12.4h9.7"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeWidth="1"
+          />
+        </svg>
+      );
+    case 'monthly':
+      return (
+        <svg viewBox="0 0 16 16" focusable="false">
+          <rect
+            fill="none"
+            height="10.4"
+            rx="1.6"
+            stroke="currentColor"
+            strokeWidth="1.1"
+            width="8.8"
+            x="3.6"
+            y="2.8"
+          />
+          <path
+            d="M5.6 2.3v2.1M10.4 2.3v2.1M4.3 5.8h7.4M5.2 8.2h5.6M5.2 10.5h4.3"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeWidth="1.1"
+          />
+        </svg>
+      );
+    case 'ratio':
+      return (
+        <svg viewBox="0 0 16 16" focusable="false">
+          <path
+            d="M5.2 11.9a2.8 2.8 0 1 1 .4-5.6 3.6 3.6 0 0 1 6.5 1.1 2.4 2.4 0 0 1-.7 4.5H5.2Z"
+            fill="none"
+            stroke="currentColor"
+            strokeLinejoin="round"
+            strokeWidth="1.1"
+          />
+          <path
+            d="M6.2 9.2h3.9M7.7 7.9l1.1 1.3 1.2-1.7"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.1"
+          />
+        </svg>
+      );
+    case 'notes':
+      return (
+        <svg viewBox="0 0 16 16" focusable="false">
+          <circle cx="8" cy="8" fill="none" r="5.7" stroke="currentColor" strokeWidth="1.1" />
+          <path
+            d="M6.6 6.1c.2-.8.9-1.3 1.9-1.3 1.1 0 1.8.6 1.8 1.5 0 .9-.5 1.3-1.2 1.8-.7.4-1 .8-1 1.5"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.1"
+          />
+          <circle cx="8" cy="11.6" fill="currentColor" r="0.75" />
+        </svg>
+      );
+    default:
+      return <></>;
+  }
+}
+
+/**
  * 转换为数字
  * @param value 原始值，必填，默认值：无
  * @returns 数字结果
@@ -192,6 +339,29 @@ function getWeatherRatioThemeColor(weatherType: string, index: number): string {
  */
 function formatMetric(value: number, digits: number = 1): string {
   return Number.isFinite(value) ? value.toFixed(digits) : '--';
+}
+
+/**
+ * 格式化趋势图 tooltip 数值
+ * @param value 原始值，必填，默认值：无
+ * @param digits 小数位数，非必填，默认值：2
+ * @returns tooltip 展示文本
+ */
+function formatTooltipMetricValue(value: unknown, digits: number = 2): string {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value.toFixed(digits) : '--';
+  }
+
+  if (typeof value === 'string') {
+    const parsedValue = Number.parseFloat(value);
+    return Number.isFinite(parsedValue) ? parsedValue.toFixed(digits) : '--';
+  }
+
+  if (Array.isArray(value) && value.length > 0) {
+    return formatTooltipMetricValue(value[value.length - 1], digits);
+  }
+
+  return '--';
 }
 
 /**
@@ -475,6 +645,40 @@ function buildTemperatureOption(records: TrendChartRecord[]): EChartsOption {
       borderColor: 'rgba(104, 143, 159, 0.26)',
       textStyle: {
         color: '#dbe9f0',
+      },
+      formatter: (params: unknown) => {
+        const items = Array.isArray(params) ? params : [params];
+        const firstItem = items[0];
+
+        if (typeof firstItem !== 'object' || firstItem === null) {
+          return '暂无数据';
+        }
+
+        const axisLabel =
+          'axisValueLabel' in firstItem && typeof firstItem.axisValueLabel === 'string'
+            ? firstItem.axisValueLabel
+            : 'name' in firstItem && typeof firstItem.name === 'string'
+              ? firstItem.name
+              : '--';
+
+        const lines = items
+          .map((item) => {
+            if (typeof item !== 'object' || item === null) {
+              return null;
+            }
+
+            const marker = 'marker' in item && typeof item.marker === 'string' ? item.marker : '';
+            const seriesName =
+              'seriesName' in item && typeof item.seriesName === 'string'
+                ? item.seriesName
+                : '温度';
+            const valueText = 'value' in item ? formatTooltipMetricValue(item.value, 2) : '--';
+
+            return `${marker}${seriesName} ${valueText}`;
+          })
+          .filter((line): line is string => Boolean(line));
+
+        return [axisLabel, ...lines].join('<br />');
       },
     },
     legend: {
@@ -1326,8 +1530,11 @@ export default function Stats(): JSX.Element {
       <div className="stats-page__shell">
         <header className="stats-page__topbar">
           <div className="stats-page__brand">
-            <h1 className="stats-page__brand-title">城市环境与天气大屏</h1>
-            <span className="stats-page__brand-subtitle">STORM LEDGER</span>
+            <BrandMark className="stats-page__brand-mark" />
+            <div className="stats-page__brand-copy">
+              <h1 className="stats-page__brand-title">城市环境与天气大屏</h1>
+              <span className="stats-page__brand-subtitle">STORM LEDGER</span>
+            </div>
           </div>
 
           <div className="stats-page__headline-card stats-page__headline-card--city">
@@ -1409,9 +1616,40 @@ export default function Stats(): JSX.Element {
 
         <div className="stats-page__layout">
           <aside className="stats-page__sidebar">
-            <section className="stats-page__sidebar-panel">
+            <section className="stats-page__sidebar-panel stats-page__sidebar-panel--nav">
               <div className="stats-page__sidebar-head">
-                <span className="stats-page__sidebar-kicker">统计详情</span>
+                <span className="stats-page__sidebar-kicker">
+                  <span className="stats-page__sidebar-kicker-icon" aria-hidden="true">
+                    <svg viewBox="0 0 16 16" focusable="false">
+                      <path
+                        d="M4.5 10.8V7.8M7.9 10.8V5.6M11.2 10.8V6.8"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeWidth="1.35"
+                      />
+                      <path
+                        d="m4.5 7.8 3.4-2.2 3.3 1.2"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="1.15"
+                      />
+                      <circle cx="4.5" cy="7.8" fill="currentColor" r="0.8" />
+                      <circle cx="7.9" cy="5.6" fill="currentColor" r="0.8" />
+                      <circle cx="11.2" cy="6.8" fill="currentColor" r="0.8" />
+                      <path
+                        d="M3.8 11.6h8.4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeWidth="1.1"
+                      />
+                    </svg>
+                  </span>
+                  <span>统计详情</span>
+                </span>
                 <h2 className="stats-page__sidebar-title">多维统计概览</h2>
               </div>
 
@@ -1424,15 +1662,15 @@ export default function Stats(): JSX.Element {
                     type="button"
                   >
                     <span className="stats-page__nav-icon" aria-hidden="true">
-                      {item.icon}
+                      {renderSidebarIcon(item.id)}
                     </span>
-                    <span>{item.label}</span>
+                    <span className="stats-page__nav-label">{getSidebarNavLabel(item.id)}</span>
                   </button>
                 ))}
               </nav>
             </section>
 
-            <section className="stats-page__city-card">
+            <section className="stats-page__city-card stats-page__city-card--sidebar">
               <div
                 className="stats-page__city-cover"
                 style={{ backgroundImage: `url(${cityPreviewImage})` }}

@@ -3,13 +3,14 @@
  * @description 主页面 - 按设计稿重建的城市环境与天气大屏首页
  * @author
  * @created 2026-06-13
- * @updated 2026-06-13
+ * @updated 2026-06-19
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { EChartsOption } from 'echarts';
 import { useNavigate } from 'react-router-dom';
+import { BrandMark } from '../../components/commons/BrandMark';
 import { DashboardChart } from '../../components/commons/DashboardChart';
 import { WeatherIcon } from '../../components/commons/WeatherIcon';
 import { CityDrawer } from '../../components/business/CityDrawer';
@@ -108,6 +109,27 @@ interface DisplayHighlightSummary {
 
 /** 天气类型占比卡片配色 */
 const WEATHER_RATIO_COLORS = ['#f2b338', '#72cbd2', '#8e9ba3', '#4f9bc7', '#7acb88'];
+
+/** 寮圭獥鍙仛鐒︾殑鍏冪礌閫夋嫨鍣?*/
+const MODAL_FOCUSABLE_SELECTOR = [
+  'button:not([disabled])',
+  '[href]',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
+/**
+ * 鑾峰彇寮圭獥鍐呭彲鑱氱劍鍏冪礌
+ * @param container 瀹瑰櫒鍏冪礌锛屽繀濉紝榛樿鍊硷細鏃?
+ * @returns 鍙仛鐒︾殑鍏冪礌鍒楄〃
+ */
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(MODAL_FOCUSABLE_SELECTOR)).filter(
+    (element) => element.getAttribute('aria-hidden') !== 'true' && element.getClientRects().length > 0
+  );
+}
 
 /**
  * 将十六进制颜色转换为 CSS 变量可使用的 RGB 字符串
@@ -1475,7 +1497,11 @@ export default function Home(): JSX.Element {
   useLocation();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [alertModalOpen, setAlertModalOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const alertTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const alertModalRef = useRef<HTMLDivElement | null>(null);
+  const previousFocusedRef = useRef<HTMLElement | null>(null);
   const { homeData, statsDetail, loading, error, refetch } = useHomeData();
 
   /**
@@ -1497,6 +1523,90 @@ export default function Home(): JSX.Element {
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!homeData?.alerts.length) {
+      setAlertModalOpen(false);
+    }
+  }, [homeData?.alerts.length]);
+
+  useEffect(() => {
+    if (!alertModalOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const modalElement = alertModalRef.current;
+    previousFocusedRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setAlertModalOpen(false);
+        return;
+      }
+
+      if (event.key !== 'Tab' || !modalElement) {
+        return;
+      }
+
+      const focusableElements = getFocusableElements(modalElement);
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        modalElement.focus();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+      if (!activeElement || !modalElement.contains(activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? lastElement : firstElement).focus();
+        return;
+      }
+
+      if (event.shiftKey && (activeElement === firstElement || activeElement === modalElement)) {
+        event.preventDefault();
+        lastElement.focus();
+        return;
+      }
+
+      if (!event.shiftKey && activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.body.style.overflow = 'hidden';
+    const focusTimer = window.setTimeout(() => {
+      if (!modalElement) {
+        return;
+      }
+
+      const focusableElements = getFocusableElements(modalElement);
+      const initialFocusElement = focusableElements[0] || modalElement;
+      initialFocusElement.focus();
+    }, 0);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+      const restoreTarget =
+        previousFocusedRef.current && previousFocusedRef.current.isConnected
+          ? previousFocusedRef.current
+          : alertTriggerRef.current;
+      window.setTimeout(() => {
+        restoreTarget?.focus();
+      }, 0);
+      previousFocusedRef.current = null;
+    };
+  }, [alertModalOpen]);
 
   const viewModel = useMemo(() => {
     if (!homeData) {
@@ -1564,6 +1674,9 @@ export default function Home(): JSX.Element {
   }
 
   const primaryAlert = homeData.alerts[0] || null;
+  const alertPreviewText = primaryAlert
+    ? primaryAlert.description || primaryAlert.instruction || '请关注最新气象部门发布的提示信息。'
+    : '';
   const aqiColor = AQI_CATEGORY_COLORS[homeData.airNow.category] || '#88B04B';
   const airLevelLabel = homeData.airNow.category || homeData.airNow.level || '未知';
   const aqiBadgeStyle = {
@@ -1579,11 +1692,14 @@ export default function Home(): JSX.Element {
 
   return (
     <div className="weather-home">
-      <div className="weather-home__shell">
+      <div aria-hidden={alertModalOpen} className="weather-home__shell">
         <header className="weather-home__topbar">
           <div className="weather-home__brand">
-            <h1 className="weather-home__brand-title">城市环境与天气大屏</h1>
-            <span className="weather-home__brand-subtitle">STORM LEDGER</span>
+            <BrandMark className="weather-home__brand-mark" />
+            <div className="weather-home__brand-copy">
+              <h1 className="weather-home__brand-title">城市环境与天气大屏</h1>
+              <span className="weather-home__brand-subtitle">STORM LEDGER</span>
+            </div>
           </div>
 
           <div className="weather-home__headline-card weather-home__headline-card--city">
@@ -1929,13 +2045,17 @@ export default function Home(): JSX.Element {
                     {primaryAlert.severity} {primaryAlert.eventType}
                   </div>
                   <h3>{primaryAlert.headline || primaryAlert.eventType}</h3>
-                  <p>{primaryAlert.description || '请关注最新气象部门发布的提示信息。'}</p>
-                  <div className="weather-home__alert-meta">
-                    <span>发布时间 {formatTime(primaryAlert.publishedAt)}</span>
-                    <span>有效期至 {formatTime(primaryAlert.expireTime)}</span>
-                  </div>
-                  <div className="weather-home__alert-note">
-                    {primaryAlert.instruction || '请合理安排出行并留意临近预警。'}
+                  <p className="weather-home__alert-preview">{alertPreviewText}</p>
+                  <div className="weather-home__alert-actions">
+                    <span className="weather-home__alert-hint">点击弹窗查看完整预警说明与防护建议</span>
+                    <button
+                      className="weather-home__alert-trigger"
+                      onClick={() => setAlertModalOpen(true)}
+                      ref={alertTriggerRef}
+                      type="button"
+                    >
+                      查看详情
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -1970,6 +2090,72 @@ export default function Home(): JSX.Element {
             </section>
           </aside>
         </main>
+
+        {primaryAlert && alertModalOpen && (
+          <div
+            className="weather-home__alert-modal-backdrop"
+            onClick={() => setAlertModalOpen(false)}
+            role="presentation"
+          >
+            <div
+              aria-labelledby="weather-home-alert-modal-title"
+              aria-modal="true"
+              className="weather-home__alert-modal"
+              onClick={(event) => event.stopPropagation()}
+              ref={alertModalRef}
+              role="dialog"
+              tabIndex={-1}
+            >
+              <div className="weather-home__alert-modal-head">
+                <div className="weather-home__alert-modal-title">
+                  <div
+                    className="weather-home__alert-badge"
+                    style={{ backgroundColor: `${alertColor}20`, color: alertColor }}
+                  >
+                    {primaryAlert.severity} {primaryAlert.eventType}
+                  </div>
+                  <h3 id="weather-home-alert-modal-title">
+                    {primaryAlert.headline || primaryAlert.eventType}
+                  </h3>
+                  <span>{primaryAlert.senderName || '气象部门发布'}</span>
+                </div>
+                <button
+                  aria-label="关闭预警详情弹窗"
+                  className="weather-home__alert-modal-close"
+                  onClick={() => setAlertModalOpen(false)}
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="weather-home__alert-modal-body">
+                <div className="weather-home__alert-modal-meta">
+                  <div className="weather-home__alert-modal-meta-item">
+                    <span>发布时间</span>
+                    <strong>{formatTime(primaryAlert.publishedAt)}</strong>
+                  </div>
+                  <div className="weather-home__alert-modal-meta-item">
+                    <span>有效期至</span>
+                    <strong>{formatTime(primaryAlert.expireTime)}</strong>
+                  </div>
+                </div>
+
+                <div className="weather-home__alert-modal-section">
+                  <span className="weather-home__alert-modal-label">预警说明</span>
+                  <p className="weather-home__alert-modal-text">
+                    {primaryAlert.description || '请关注最新气象部门发布的提示信息。'}
+                  </p>
+                </div>
+
+                <div className="weather-home__alert-note">
+                  <span className="weather-home__alert-note-label">防护建议</span>
+                  {primaryAlert.instruction || '请合理安排出行并留意临近预警。'}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <section className="weather-home__bottom-grid">
           <section className="weather-home__panel weather-home__panel--bottom">
