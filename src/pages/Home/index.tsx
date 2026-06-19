@@ -1880,20 +1880,39 @@ export default function Home(): JSX.Element {
                 {homeData.daily.map((item) => (
                   <div className="weather-home__forecast-row" key={item.fxDate}>
                     <div className="weather-home__forecast-date">
-                      <span>{formatShortDate(item.fxDate)}</span>
-                      <em>{formatWeekLabel(item.fxDate)}</em>
+                      <span className="weather-home__forecast-cell-label">日期</span>
+                      <span className="weather-home__forecast-cell-value">
+                        <span>{formatShortDate(item.fxDate)}</span>
+                        <em>{formatWeekLabel(item.fxDate)}</em>
+                      </span>
                     </div>
                     <div className="weather-home__forecast-weather">
-                      <WeatherIcon
-                        code={item.iconDay}
-                        className="weather-home__forecast-glyph"
-                        label={getDailyTypeLabel(item)}
-                      />
-                      <em>{getDailyTypeLabel(item)}</em>
+                      <span className="weather-home__forecast-cell-label">天气</span>
+                      <span className="weather-home__forecast-cell-value">
+                        <WeatherIcon
+                          code={item.iconDay}
+                          className="weather-home__forecast-glyph"
+                          label={getDailyTypeLabel(item)}
+                        />
+                        <em>{getDailyTypeLabel(item)}</em>
+                      </span>
                     </div>
-                    <strong>{item.tempMax}° / {item.tempMin}°</strong>
-                    <span>{item.precip} mm</span>
-                    <span>{item.windDirDay} {item.windScaleDay}级</span>
+                    <div className="weather-home__forecast-cell weather-home__forecast-cell--temperature">
+                      <span className="weather-home__forecast-cell-label">温度</span>
+                      <strong className="weather-home__forecast-cell-value">
+                        {item.tempMax}° / {item.tempMin}°
+                      </strong>
+                    </div>
+                    <div className="weather-home__forecast-cell">
+                      <span className="weather-home__forecast-cell-label">降水</span>
+                      <span className="weather-home__forecast-cell-value">{item.precip} mm</span>
+                    </div>
+                    <div className="weather-home__forecast-cell">
+                      <span className="weather-home__forecast-cell-label">风力</span>
+                      <span className="weather-home__forecast-cell-value">
+                        {item.windDirDay} {item.windScaleDay}级
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>

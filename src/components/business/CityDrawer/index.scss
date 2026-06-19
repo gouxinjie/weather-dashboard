@@ -13,6 +13,7 @@
   z-index: 1000;
   display: flex;
   justify-content: flex-end;
+  overscroll-behavior: contain;
 }
 
 .city-drawer {
@@ -24,6 +25,8 @@
   display: flex;
   flex-direction: column;
   animation: slideInRight 0.25s ease;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 
   @keyframes slideInRight {
     from { transform: translateX(100%); }
@@ -36,6 +39,10 @@
     align-items: center;
     padding: var(--gap-lg) var(--gap-xl);
     border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bg-primary);
   }
 
   &__title {
@@ -58,6 +65,10 @@
   &__search {
     padding: var(--gap-lg) var(--gap-xl);
     position: relative;
+    position: sticky;
+    top: 65px;
+    z-index: 1;
+    background: var(--bg-primary);
   }
 
   &__search-input {
@@ -195,6 +206,53 @@
       border-color: var(--highlight-rain);
       color: var(--highlight-rain);
       font-weight: 600;
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .city-drawer-overlay {
+    justify-content: stretch;
+  }
+
+  .city-drawer {
+    width: 100vw;
+    max-width: none;
+    border-left: 0;
+
+    &__header,
+    &__search,
+    &__section {
+      padding-left: var(--gap-lg);
+      padding-right: var(--gap-lg);
+    }
+
+    &__search {
+      top: 65px;
+    }
+
+    &__results {
+      max-height: 180px;
+      padding-left: var(--gap-lg);
+      padding-right: var(--gap-lg);
+    }
+
+    &__result-item,
+    &__section-header {
+      gap: var(--gap-sm);
+    }
+
+    &__section-header {
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    &__city-grid {
+      gap: 6px;
+    }
+
+    &__city-tag {
+      padding-inline: 12px;
     }
   }
 }

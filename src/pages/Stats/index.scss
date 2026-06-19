@@ -908,11 +908,29 @@
     color: #dbe9f0;
     font-size: 12px;
 
-    span {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+  }
+
+  &__table-cell {
+    min-width: 0;
+  }
+
+  &__table-cell-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  &__table-cell-value {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__table-row--head {
@@ -1021,11 +1039,72 @@
     }
 
     &__sidebar {
-      order: 2;
+      order: 1;
+      gap: var(--stats-page-gap);
     }
 
     &__content {
-      order: 1;
+      order: 2;
+    }
+
+    &__sidebar-panel--nav,
+    &__city-card--sidebar {
+      border-radius: var(--stats-page-radius-lg);
+    }
+
+    &__sidebar-panel--nav {
+      border-bottom-left-radius: var(--stats-page-radius-lg);
+      border-bottom-right-radius: var(--stats-page-radius-lg);
+    }
+
+    &__city-card--sidebar {
+      margin-top: 0;
+      border-top: 1px solid var(--stats-page-border);
+      border-top-left-radius: var(--stats-page-radius-lg);
+      border-top-right-radius: var(--stats-page-radius-lg);
+    }
+
+    &__nav {
+      flex-direction: row;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+
+    &__nav::-webkit-scrollbar {
+      display: none;
+    }
+
+    &__nav-item {
+      flex: 0 0 auto;
+      min-width: max-content;
+      padding-inline: 14px;
+
+      &:hover {
+        transform: translateY(-1px);
+      }
+    }
+
+    &__city-card {
+      grid-template-columns: 148px minmax(0, 1fr) auto;
+      grid-template-rows: 1fr;
+      align-items: stretch;
+    }
+
+    &__city-cover {
+      min-height: 100%;
+    }
+
+    &__city-copy {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 14px 14px 14px 16px;
+    }
+
+    &__city-switch {
+      align-self: center;
+      margin: 12px 14px 12px 0;
     }
 
     &__mini-stats {
@@ -1047,10 +1126,13 @@
       grid-template-columns: 1fr;
       gap: 6px;
       padding: 10px;
+      width: 100%;
+      max-width: 100%;
     }
 
     &__topbar > * {
       padding: 0 10px;
+      width: 100%;
     }
 
     &__brand-title {
@@ -1059,6 +1141,7 @@
 
     &__brand {
       gap: 10px;
+      justify-content: flex-start;
     }
 
     &__brand-mark {
@@ -1067,13 +1150,29 @@
       flex-basis: 36px;
     }
 
+    &__sidebar-panel,
+    &__panel {
+      padding: 12px;
+    }
+
+    &__sidebar-panel--nav {
+      padding: 12px;
+    }
+
     &__section-header {
       flex-direction: column;
-      align-items: flex-start;
+      align-items: stretch;
     }
 
     &__filters {
+      display: flex;
       flex-wrap: wrap;
+      width: 100%;
+      align-self: stretch;
+    }
+
+    &__filter {
+      flex: 1 0 calc(50% - 4px);
     }
 
     &__mini-stats,
@@ -1099,12 +1198,82 @@
       font-size: 16px;
     }
 
-    &__table {
-      overflow-x: auto;
+    &__panel-head {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    &__headline-card,
+    &__back-button {
+      min-height: 44px;
+      padding-block: 10px;
+    }
+
+    &__headline-card {
+      align-items: flex-start;
+    }
+
+    &__back-button {
+      justify-content: flex-start;
     }
 
     &__table-row {
-      width: 760px;
+      width: auto;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid rgba(88, 131, 151, 0.12);
+      border-radius: var(--stats-page-radius-md);
+      background: linear-gradient(180deg, rgba(12, 35, 49, 0.72), rgba(8, 20, 29, 0.5));
+    }
+
+    &__table-row--head {
+      display: none;
+    }
+
+    &__table-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      line-height: 1.5;
+    }
+
+    &__table-cell-label {
+      position: static;
+      width: auto;
+      height: auto;
+      margin: 0;
+      overflow: visible;
+      clip: auto;
+      white-space: normal;
+      color: var(--stats-page-text-soft);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    &__table-cell-value {
+      overflow: visible;
+      white-space: normal;
+      text-overflow: clip;
+    }
+
+    &__city-card {
+      grid-template-columns: 1fr;
+      grid-template-rows: 92px auto auto;
+    }
+
+    &__city-copy {
+      padding: 12px 14px 0;
+    }
+
+    &__city-switch {
+      width: calc(100% - 28px);
+      margin: 12px 14px 14px;
+    }
+
+    &__footer {
+      gap: 4px;
     }
   }
 }

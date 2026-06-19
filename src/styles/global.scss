@@ -66,6 +66,8 @@
 
 html {
   font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -80,10 +82,12 @@ body {
   line-height: 1.5;
   overflow-x: hidden;
   min-height: 100vh;
+  min-width: 320px;
 }
 
 #root {
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 a {

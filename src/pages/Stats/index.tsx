@@ -1841,19 +1841,40 @@ export default function Stats(): JSX.Element {
 
                   {weeklyRows.map((item) => (
                     <div className="stats-page__table-row" key={`${item.weekLabel}-${item.dateRange}`}>
-                      <span>{item.weekLabel}</span>
-                      <span>{item.dateRange}</span>
-                      <span>{item.avgTemp}°C</span>
-                      <span>
-                        {item.maxTemp} / {item.minTemp}
-                      </span>
-                      <span>
-                        {item.precipitation} / {item.rainyDays}天
-                      </span>
-                      <span>{item.aqiAvg}</span>
-                      <span>
-                        {item.weatherType} · {item.sampleText}
-                      </span>
+                      <div className="stats-page__table-cell">
+                        <span className="stats-page__table-cell-label">周次</span>
+                        <span className="stats-page__table-cell-value">{item.weekLabel}</span>
+                      </div>
+                      <div className="stats-page__table-cell">
+                        <span className="stats-page__table-cell-label">日期范围</span>
+                        <span className="stats-page__table-cell-value">{item.dateRange}</span>
+                      </div>
+                      <div className="stats-page__table-cell">
+                        <span className="stats-page__table-cell-label">平均温度</span>
+                        <span className="stats-page__table-cell-value">{item.avgTemp}°C</span>
+                      </div>
+                      <div className="stats-page__table-cell">
+                        <span className="stats-page__table-cell-label">最高/最低</span>
+                        <span className="stats-page__table-cell-value">
+                          {item.maxTemp} / {item.minTemp}
+                        </span>
+                      </div>
+                      <div className="stats-page__table-cell">
+                        <span className="stats-page__table-cell-label">降水(mm)</span>
+                        <span className="stats-page__table-cell-value">
+                          {item.precipitation} / {item.rainyDays}天
+                        </span>
+                      </div>
+                      <div className="stats-page__table-cell">
+                        <span className="stats-page__table-cell-label">AQI</span>
+                        <span className="stats-page__table-cell-value">{item.aqiAvg}</span>
+                      </div>
+                      <div className="stats-page__table-cell">
+                        <span className="stats-page__table-cell-label">天气概况</span>
+                        <span className="stats-page__table-cell-value">
+                          {item.weatherType} · {item.sampleText}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1883,15 +1904,36 @@ export default function Stats(): JSX.Element {
 
                   {monthlyRows.map((item) => (
                     <div className="stats-page__table-row" key={item.month}>
-                      <span>{item.month}</span>
-                      <span>{item.avgTemp}°C</span>
-                      <span>
-                        {item.maxTemp} / {item.minTemp}
-                      </span>
-                      <span>{item.precipitation}</span>
-                      <span>{item.rainyDays}天</span>
-                      <span>{item.aqiAvg}</span>
-                      <span>{item.sampleText}</span>
+                      <div className="stats-page__table-cell">
+                        <span className="stats-page__table-cell-label">月份</span>
+                        <span className="stats-page__table-cell-value">{item.month}</span>
+                      </div>
+                      <div className="stats-page__table-cell">
+                        <span className="stats-page__table-cell-label">平均温度</span>
+                        <span className="stats-page__table-cell-value">{item.avgTemp}°C</span>
+                      </div>
+                      <div className="stats-page__table-cell">
+                        <span className="stats-page__table-cell-label">最高/最低</span>
+                        <span className="stats-page__table-cell-value">
+                          {item.maxTemp} / {item.minTemp}
+                        </span>
+                      </div>
+                      <div className="stats-page__table-cell">
+                        <span className="stats-page__table-cell-label">降水(mm)</span>
+                        <span className="stats-page__table-cell-value">{item.precipitation}</span>
+                      </div>
+                      <div className="stats-page__table-cell">
+                        <span className="stats-page__table-cell-label">雨天数</span>
+                        <span className="stats-page__table-cell-value">{item.rainyDays}天</span>
+                      </div>
+                      <div className="stats-page__table-cell">
+                        <span className="stats-page__table-cell-label">AQI</span>
+                        <span className="stats-page__table-cell-value">{item.aqiAvg}</span>
+                      </div>
+                      <div className="stats-page__table-cell">
+                        <span className="stats-page__table-cell-label">样本说明</span>
+                        <span className="stats-page__table-cell-value">{item.sampleText}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
