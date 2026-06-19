@@ -56,6 +56,34 @@ interface HeroMetric {
   accent: 'amber' | 'teal' | 'cyan' | 'green';
 }
 
+/**
+ * 解析主天气卡指标图标类名
+ * @param metricKey 指标键名
+ * @returns 和风图标 className
+ */
+function resolveHeroMetricIconClass(metricKey: HeroMetric['key']): string {
+  switch (metricKey) {
+    case 'temp-max':
+      return 'qi-high-temperature3';
+    case 'temp-min':
+      return 'qi-low-temperature3';
+    case 'wind':
+      return 'qi-wind3';
+    case 'humidity':
+      return 'qi-low-humidity2';
+    case 'visibility':
+      return 'qi-low-visibility';
+    case 'pressure':
+      return 'qi-high-water';
+    case 'precipitation':
+      return 'qi-rainfall';
+    case 'uv':
+      return 'qi-sunny';
+    default:
+      return 'qi-999';
+  }
+}
+
 /** 底部天气类型占比卡片定义 */
 interface DisplayWeatherRatioSummary {
   title: string;
@@ -77,6 +105,9 @@ interface DisplayHighlightSummary {
   note: string;
   items: string[];
 }
+
+/** 天气类型占比卡片配色 */
+const WEATHER_RATIO_COLORS = ['#f2b338', '#72cbd2', '#8e9ba3', '#4f9bc7', '#7acb88'];
 
 /**
  * 将十六进制颜色转换为 CSS 变量可使用的 RGB 字符串
@@ -113,6 +144,24 @@ function toNumber(value: string | number | null | undefined): number {
 
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
+ * 格式化天气类型占比百分比
+ * @param ratio 占比数值
+ * @returns 百分比文本
+ */
+function formatRatioPercent(ratio: number): string {
+  return `${Math.round(ratio * 100)}%`;
+}
+
+/**
+ * 获取天气类型占比配色
+ * @param index 数据项序号
+ * @returns 图例和图表统一色值
+ */
+function getWeatherRatioColor(index: number): string {
+  return WEATHER_RATIO_COLORS[index % WEATHER_RATIO_COLORS.length];
 }
 
 /**
@@ -1300,11 +1349,13 @@ function buildPrecipitationTrendOption(
  * @returns ECharts 配置
  */
 function buildWeatherRatioOption(ratios: WeatherTypeRatio[]): EChartsOption {
-  const colors = ['#f2b338', '#72cbd2', '#8e9ba3', '#4f9bc7', '#7acb88'];
+  const primaryRatio = ratios[0] ?? null;
+  const centerValue = primaryRatio ? formatRatioPercent(primaryRatio.ratio) : '--';
+  const centerLabel = primaryRatio ? `主天气 ${primaryRatio.type}` : '暂无样本';
 
   return {
     animationDuration: 500,
-    color: colors,
+    color: WEATHER_RATIO_COLORS,
     tooltip: {
       trigger: 'item',
       backgroundColor: 'rgba(9, 20, 30, 0.96)',
@@ -1317,8 +1368,8 @@ function buildWeatherRatioOption(ratios: WeatherTypeRatio[]): EChartsOption {
     series: [
       {
         type: 'pie',
-        radius: ['54%', '76%'],
-        center: ['46%', '54%'],
+        radius: ['58%', '78%'],
+        center: ['50%', '50%'],
         data: ratios.map((item) => ({
           name: item.type,
           value: item.count,
@@ -1335,15 +1386,33 @@ function buildWeatherRatioOption(ratios: WeatherTypeRatio[]): EChartsOption {
     graphic: [
       {
         type: 'group',
-        left: '35%',
-        top: '39%',
+        left: '50%',
+        top: '50%',
+        silent: true,
+        bounding: 'raw',
         children: [
           {
             type: 'text',
+            x: 0,
+            y: -12,
             style: {
-              text: '☁',
-              fill: '#dfeff7',
-              font: '28px "Segoe UI Symbol"',
+              text: centerValue,
+              align: 'center',
+              verticalAlign: 'middle',
+              fill: '#f4e4c5',
+              font: '700 22px "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+            },
+          },
+          {
+            type: 'text',
+            x: 0,
+            y: 12,
+            style: {
+              text: centerLabel,
+              align: 'center',
+              verticalAlign: 'middle',
+              fill: '#88a7b6',
+              font: '10px "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
             },
           },
         ],
@@ -1762,13 +1831,14 @@ export default function Home(): JSX.Element {
                       className={`weather-home__hero-metric weather-home__hero-metric--${item.accent}`}
                       key={item.key}
                     >
-                      <div className="weather-home__hero-metric-head">
-                        <span className="weather-home__hero-metric-icon" aria-hidden="true">
-                          {item.icon}
-                        </span>
+                      <i
+                        className={`weather-home__hero-metric-icon weather-icon ${resolveHeroMetricIconClass(item.key)}`}
+                        aria-hidden="true"
+                      />
+                      <div className="weather-home__hero-metric-copy">
                         <span className="weather-home__hero-metric-label">{item.label}</span>
+                        <strong className="weather-home__hero-metric-value">{item.value}</strong>
                       </div>
-                      <strong className="weather-home__hero-metric-value">{item.value}</strong>
                     </div>
                   ))}
                 </div>
@@ -1927,12 +1997,16 @@ export default function Home(): JSX.Element {
               <h2>{viewModel.displayMonthlyPrecipitation.title}</h2>
               <span>单位: mm</span>
             </div>
-            <div className="weather-home__precip-hero">
-              <strong>{viewModel.displayMonthlyPrecipitation.value}</strong>
-              <em>mm</em>
-            </div>
-            <div className="weather-home__precip-visual">
-              <WeatherIcon code="305" className="weather-home__precip-icon" />
+            <div className="weather-home__precip-body">
+              <div className="weather-home__precip-hero">
+                <strong>{viewModel.displayMonthlyPrecipitation.value}</strong>
+                <em>mm</em>
+              </div>
+              <div className="weather-home__precip-visual" aria-hidden="true">
+                <span className="weather-home__precip-drop" />
+                <span className="weather-home__precip-ripple weather-home__precip-ripple--outer" />
+                <span className="weather-home__precip-ripple weather-home__precip-ripple--inner" />
+              </div>
             </div>
             <div className="weather-home__precip-footnote">
               <span>{viewModel.precipitationDelta}</span>
@@ -1945,16 +2019,29 @@ export default function Home(): JSX.Element {
               <h2>{viewModel.weatherRatioSummary.title}</h2>
               <span>{viewModel.weatherRatioSummary.note}</span>
             </div>
-            <div className="weather-home__ratio-chart">
-              <DashboardChart option={buildWeatherRatioOption(viewModel.weatherRatiosAll)} />
-            </div>
-            <div className="weather-home__ratio-legend-list">
-              {viewModel.weatherRatiosAll.slice(0, 4).map((item) => (
-                <div className="weather-home__ratio-legend-row" key={item.type}>
-                  <span>{item.type}</span>
-                  <strong>{Math.round(item.ratio * 100)}%</strong>
-                </div>
-              ))}
+            <div className="weather-home__ratio-layout">
+              <div className="weather-home__ratio-legend-list">
+                {viewModel.weatherRatios.map((item, index) => (
+                  <div className="weather-home__ratio-legend-row" key={item.type}>
+                    <div className="weather-home__ratio-legend-label">
+                      <span
+                        aria-hidden="true"
+                        className="weather-home__ratio-legend-dot"
+                        style={
+                          {
+                            '--weather-home-ratio-color': getWeatherRatioColor(index),
+                          } as CSSProperties
+                        }
+                      />
+                      <span>{item.type}</span>
+                    </div>
+                    <strong>{formatRatioPercent(item.ratio)}</strong>
+                  </div>
+                ))}
+              </div>
+              <div className="weather-home__ratio-chart">
+                <DashboardChart option={buildWeatherRatioOption(viewModel.weatherRatiosAll)} />
+              </div>
             </div>
           </section>
 

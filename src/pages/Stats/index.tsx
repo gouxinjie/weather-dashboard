@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import type { EChartsOption } from 'echarts';
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
 import cityPreviewImage from '../../assets/hero-rain-reference.png';
@@ -101,6 +102,8 @@ const TREND_OPTIONS: Array<{ label: string; value?: TrendRange; disabled?: boole
   { label: '自定义', disabled: true },
 ];
 
+const WEATHER_RATIO_FALLBACK_COLORS = ['#dea63b', '#42bbe0', '#5e95ca', '#b7b8b5', '#4d86bb', '#78a8d6'];
+
 /**
  * 转换为数字
  * @param value 原始值，必填，默认值：无
@@ -117,6 +120,68 @@ function toNumber(value: number | string | null | undefined): number {
 
   const parsedValue = Number.parseFloat(value);
   return Number.isFinite(parsedValue) ? parsedValue : 0;
+}
+
+/**
+ * 格式化天气占比文本
+ * @param ratio 占比值
+ * @returns 百分比文本
+ */
+function formatRatioPercent(ratio: number): string {
+  return `${(ratio * 100).toFixed(1)}%`;
+}
+
+/**
+ * 获取天气占比配色
+ * @param index 序号
+ * @returns 色值
+ */
+function getWeatherRatioColor(index: number): string {
+  return WEATHER_RATIO_FALLBACK_COLORS[index % WEATHER_RATIO_FALLBACK_COLORS.length];
+}
+
+/**
+ * 获取天气类型占比主题色
+ * @param weatherType 天气类型
+ * @param index 序号
+ * @returns 主题色
+ */
+function getWeatherRatioThemeColor(weatherType: string, index: number): string {
+  const normalizedType = weatherType.trim();
+
+  if (normalizedType.includes('晴')) {
+    return '#eea625';
+  }
+
+  if (normalizedType.includes('多云')) {
+    return '#d7d3cb';
+  }
+
+  if (normalizedType.includes('阴')) {
+    return '#5b87b4';
+  }
+
+  if (normalizedType.includes('雾') || normalizedType.includes('霾')) {
+    return '#8fa5b7';
+  }
+
+  if (normalizedType.includes('小雨')) {
+    return '#53bbe5';
+  }
+
+  if (normalizedType.includes('中雨')) {
+    return '#3fa4d8';
+  }
+
+  if (normalizedType.includes('大雨') || normalizedType.includes('暴雨')) {
+    return '#2f84bf';
+  }
+
+  if (normalizedType.includes('雪')) {
+    return '#dbe7ef';
+  }
+
+  return getWeatherRatioColor(index);
 }
 
 /**
@@ -661,6 +726,38 @@ function buildAqiOption(records: TrendChartRecord[]): EChartsOption {
       textStyle: {
         color: '#dbe9f0',
       },
+      formatter: (params: unknown) => {
+        const items = Array.isArray(params) ? params : [params];
+        const firstItem = items[0];
+
+        if (typeof firstItem !== 'object' || firstItem === null) {
+          return '暂无数据';
+        }
+
+        const axisLabel =
+          'axisValueLabel' in firstItem && typeof firstItem.axisValueLabel === 'string'
+            ? firstItem.axisValueLabel
+            : 'name' in firstItem && typeof firstItem.name === 'string'
+              ? firstItem.name
+              : '--';
+
+        const lines = items
+          .map((item) => {
+            if (typeof item !== 'object' || item === null) {
+              return null;
+            }
+
+            const marker = 'marker' in item && typeof item.marker === 'string' ? item.marker : '';
+            const seriesName =
+              'seriesName' in item && typeof item.seriesName === 'string' ? item.seriesName : 'AQI';
+            const value = 'value' in item ? toNumber(item.value) : NaN;
+
+            return `${marker}${seriesName} ${formatMetric(value, 2)}`;
+          })
+          .filter((line): line is string => Boolean(line));
+
+        return [axisLabel, ...lines].join('<br />');
+      },
     },
     legend: {
       top: 0,
@@ -757,8 +854,11 @@ function buildAqiOption(records: TrendChartRecord[]): EChartsOption {
  * @returns ECharts 配置
  */
 function buildWeatherRatioOption(ratios: WeatherTypeRatio[]): EChartsOption {
+  const totalCount = ratios.reduce((total, item) => total + item.count, 0);
+
   return {
     backgroundColor: 'transparent',
+    color: ratios.map((item, index) => getWeatherRatioThemeColor(item.type, index)),
     tooltip: {
       trigger: 'item',
       backgroundColor: 'rgba(8, 18, 27, 0.96)',
@@ -786,14 +886,14 @@ function buildWeatherRatioOption(ratios: WeatherTypeRatio[]): EChartsOption {
             ? resolvedParams.percent
             : 0;
 
-        return `${name}<br />${value}天 / ${percent}%`;
+        return `${name}<br />${value}天 / ${formatRatioPercent(percent / 100)}`;
       },
     },
     series: [
       {
         type: 'pie',
-        radius: ['60%', '80%'],
-        center: ['42%', '50%'],
+        radius: ['64%', '82%'],
+        center: ['50%', '50%'],
         avoidLabelOverlap: true,
         label: {
           show: false,
@@ -809,33 +909,45 @@ function buildWeatherRatioOption(ratios: WeatherTypeRatio[]): EChartsOption {
           name: item.type,
           value: item.count,
           itemStyle: {
-            color: ['#f3af2f', '#4fc3d4', '#668eb6', '#b0b2af', '#5a90c8', '#4883b5'][index % 6],
+            color: getWeatherRatioThemeColor(item.type, index),
           },
         })),
       },
     ],
-    graphic: ratios.length
+    graphic: totalCount > 0
       ? [
           {
-            type: 'text',
-            left: '42%',
-            top: '46%',
-            style: {
-              text: String(ratios.reduce((total, item) => total + item.count, 0)),
-              fill: '#f4ead2',
-              fontSize: 18,
-              fontWeight: 700,
-            },
-          },
-          {
-            type: 'text',
-            left: '42%',
-            top: '56%',
-            style: {
-              text: '天气样本',
-              fill: '#8ea6b3',
-              fontSize: 11,
-            },
+            type: 'group',
+            left: '50%',
+            top: '50%',
+            silent: true,
+            bounding: 'raw',
+            children: [
+              {
+                type: 'text',
+                x: 0,
+                y: -12,
+                style: {
+                  text: `${totalCount}天`,
+                  align: 'center',
+                  verticalAlign: 'middle',
+                  fill: '#f4ead2',
+                  font: '700 24px "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+                },
+              },
+              {
+                type: 'text',
+                x: 0,
+                y: 14,
+                style: {
+                  text: '天气类型',
+                  align: 'center',
+                  verticalAlign: 'middle',
+                  fill: '#8ea6b3',
+                  font: '11px "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+                },
+              },
+            ],
           },
         ]
       : [],
@@ -1423,47 +1535,44 @@ export default function Stats(): JSX.Element {
                     <h3>近{trendRange}天天气类型占比</h3>
                     <span>统计样本 {displayedRecords.length} 天</span>
                   </div>
-                  <div className="stats-page__ratio-layout">
-                    <div className="stats-page__chart stats-page__chart--ratio">
-                      <DashboardChart option={buildWeatherRatioOption(weatherRatios)} />
-                    </div>
-                    <div className="stats-page__ratio-legend" aria-label="天气类型占比明细">
-                      <div className="stats-page__ratio-legend-head">
-                        <span>天气分布</span>
-                        <em>右侧图例展示最近样本的主要天气占比</em>
+                    <div className="stats-page__ratio-layout">
+                      <div className="stats-page__chart stats-page__chart--ratio">
+                        <DashboardChart option={buildWeatherRatioOption(weatherRatios)} />
                       </div>
-                      {weatherRatios.map((item, index) => {
-                        const ratioPercent = Math.round(item.ratio * 100);
-                        const rowClassName =
-                          index === 0
-                            ? 'stats-page__ratio-row stats-page__ratio-row--highlight'
-                            : 'stats-page__ratio-row';
+                      <div className="stats-page__ratio-legend" aria-label="天气类型占比明细">
+                        <div className="stats-page__ratio-list">
+                          {weatherRatios.map((item, index) => {
+                            const ratioPercent = formatRatioPercent(item.ratio);
+                            const themeColor = getWeatherRatioThemeColor(item.type, index);
 
-                        return (
-                          <div className={rowClassName} key={item.type}>
-                            <div className="stats-page__ratio-label">
-                              <span className="stats-page__ratio-icon-shell">
-                                <WeatherIcon
-                                  code={resolveWeatherTypeIconCode(item.type)}
-                                  className="stats-page__ratio-icon"
-                                  label={item.type}
-                                />
-                              </span>
-                              <span className="stats-page__ratio-copy">
-                                <span className="stats-page__ratio-name">{item.type}</span>
-                                <em>{index === 0 ? `近${trendRange}天主导天气` : '天气样本占比'}</em>
-                              </span>
-                            </div>
-                            <div className="stats-page__ratio-value">
-                              <strong>{ratioPercent}%</strong>
-                              <span>占比</span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                            return (
+                              <div
+                                className="stats-page__ratio-row"
+                                key={item.type}
+                                style={
+                                  {
+                                    '--stats-page-ratio-color': themeColor,
+                                  } as CSSProperties
+                                }
+                              >
+                                <div className="stats-page__ratio-label">
+                                  <WeatherIcon
+                                    code={resolveWeatherTypeIconCode(item.type)}
+                                    className="stats-page__ratio-icon"
+                                    label={item.type}
+                                  />
+                                  <span className="stats-page__ratio-name">{item.type}</span>
+                                </div>
+                                <span className="stats-page__ratio-days">{item.count}天</span>
+                                <strong className="stats-page__ratio-percent">{ratioPercent}</strong>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <p className="stats-page__ratio-footnote">统计基于日间主要天气现象</p>
+                      </div>
                     </div>
-                  </div>
-                </article>
+                  </article>
               </div>
             </section>
 
